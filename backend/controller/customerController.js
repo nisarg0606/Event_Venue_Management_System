@@ -3,27 +3,27 @@ const bcrypt = require("bcryptjs");
 const Schema = require("../model/user");
 
 
-exports.createCustomer = async (req, res) => {
-  try {
-    const { username, email, password, role } = req.body;
-    const user = await Schema.findOne({ email: email });
-    if (user) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    const newUser = new Schema({
-      username,
-      email,
-      password: hashedPassword,
-      role,
-    });
-    await newUser.save();
-    res.status(201).json(newUser);
-  } catch (error) {
-    res.status(409).json({ message: error.message });
-  }
-};
+// exports.createCustomer = async (req, res) => {
+//   try {
+//     const { username, email, password, role } = req.body;
+//     const user = await Schema.findOne({ email: email });
+//     if (user) {
+//       return res.status(400).json({ message: "User already exists" });
+//     }
+//     const salt = await bcrypt.genSalt(10);
+//     const hashedPassword = await bcrypt.hash(password, salt);
+//     const newUser = new Schema({
+//       username,
+//       email,
+//       password: hashedPassword,
+//       role,
+//     });
+//     await newUser.save();
+//     res.status(201).json(newUser);
+//   } catch (error) {
+//     res.status(409).json({ message: error.message });
+//   }
+// };
 
 exports.updateCustomer = async (req, res) => {
   try {

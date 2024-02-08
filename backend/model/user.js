@@ -38,6 +38,13 @@ const userSchema = new mongoose.Schema({
         enum: ["admin", "venueOwner", "eventPlanner", "customer"],
         default: "customer",
     },
+    twoFactorAuthEnabled: {
+        type: Boolean,
+        default: false,
+    },
+    twoFactorAuth: {
+        type: String,
+    },
 });
 
 module.exports = mongoose.model("User", userSchema);
