@@ -114,11 +114,10 @@ exports.qrCode = async (req, res) => {
     const qrCode = await qrcode.toDataURL(otpauth);
     user.twoFactorAuth = secret;
     await user.save();
-    res.status(200).json({ qrCode, message: "QR code generated successfully"});
+    res.status(200).json({ qrCode, message: "QR code generated successfully" });
   } catch (error) {
     res.status(409).json({ message: error.message });
-  
-}
+  }
 };
 
 exports.enableTwoFactorAuth = async (req, res) => {
@@ -130,7 +129,7 @@ exports.enableTwoFactorAuth = async (req, res) => {
     }
     const verified = jwt.verify(token, process.env.JWT_SECRET);
     const user = await Schema.findById(verified.user._id);
-    console.log(user , "user");
+    console.log(user, "user");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -154,3 +153,71 @@ exports.enableTwoFactorAuth = async (req, res) => {
     res.status(409).json({ message: error.message });
   }
 };
+
+exports.disableTwoFactorAuth = async (req, res) => {
+  try {
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const verified = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await Schema.findById(verified.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (!user.twoFactorAuthEnabled) {
+      return res
+        .status(400)
+        .json({ message: "Two factor authentication already disabled" });
+    }
+    user.twoFactorAuthEnabled = false;
+    user.twoFactorAuth = "";
+    await user.save();
+    res.status(200).json({ message: "Two factor authentication disabled" });
+  } catch (error) {
+    res.status(409).json({ message: error.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, oldpassword, newpassword, confirmnewpassword, code } =
+      req.body;
+    const user = await Schema.findOne({ email: email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    if (user.twoFactorAuthEnabled && !code) {
+      return res
+        .status(202)
+        .json({ message: "Two factor authentication required" });
+    }
+    if (user.twoFactorAuthEnabled && code) {
+      const isValid = authenticator.verify({
+        token: code,
+        secret: user.twoFactorAuth,
+      });
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid code" });
+      }
+    }
+    const isPasswordCorrect = await bcrypt.compare(oldpassword, user.password);
+    if (!isPasswordCorrect) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+    if (newpassword !== confirmnewpassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newpassword, salt);
+    user.password = hashedPassword;
+    await user.save();
+    res.status(200).json({ message: "Password reset successfully" });
+  } catch (error) {
+    res.status(409).json({ message: error.message });
+  }
+};
+
+
+// exports.forgetPassword = async (req, res) => {
+  
