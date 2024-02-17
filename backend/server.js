@@ -29,7 +29,7 @@ mongoose
   .catch((err) => console.log(err));
 
 // Routes
-app.use("/users", require("./routes/userRoutes"));
+app.use("/users", require("./routes/userRoutes")); //EG: ->  locahost:5000/users/login
 
 
 
