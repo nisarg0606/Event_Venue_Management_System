@@ -19,7 +19,7 @@ const transporter = nodemailer.createTransport({
 const mailOptions = {
   from: process.env.EMAIL_USER,
   to: process.env.EMAIL_USER,
-  subject: "hi",
+  subject: "Verify your email address",
   text: "Testing for myself",
   html: "<h1> Hello World</h1>",
 };

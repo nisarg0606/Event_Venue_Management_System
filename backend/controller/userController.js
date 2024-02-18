@@ -2,28 +2,88 @@
 const bcrypt = require("bcryptjs");
 const cookieParser = require("cookie-parser");
 const { authenticator } = require("otplib");
-const Schema = require("../model/user");
+const userSchema = require("../models/user");
+const Token = require("../models/token");
 const qrcode = require("qrcode");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
+const sendEmail = require("../utils/email");
+const ejs = require("ejs");
+const express = require("express");
+
+const app = express();
+
+app.set("view engine", "ejs");
 
 // common for all controllers to create a user(customer, venueOwner, eventPlanner)
 exports.createUser = async (req, res) => {
   try {
     const { username, email, password, role } = req.body;
-    const user = await Schema.findOne({ email: email });
+    let user = await userSchema.findOne({ email: email });
     if (user) {
       return res.status(400).json({ message: "User already exists" });
     }
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    const newUser = new Schema({
+    let newUser = await new userSchema({
       username,
       email,
       password: hashedPassword,
       role,
+    }).save();
+
+    let token = await new Token({
+      userId: newUser._id,
+      token: crypto.randomBytes(32).toString("hex"),
+    }).save();
+
+    const message = `${process.env.BASE_URL}/users/verify/${newUser._id}/${token.token}`;
+
+    let userInfo = {
+      username: newUser.username,
+      email: newUser.email,
+      link: message,
+    };
+    let mailOptions = {
+      email: newUser.email,
+      subject: "Verify your email address",
+      text: "Welcome to Group 15 event management system",
+      html: await ejs.renderFile(__dirname + "/../views/verification_email.ejs", {
+        userInfo: userInfo,
+      }),
+    };
+    await sendEmail(
+      mailOptions.email,
+      mailOptions.subject,
+      mailOptions.text,
+      mailOptions.html
+    );
+    
+    console.log("LINK: ", message);
+    res
+      .status(201)
+      .json({ message: "User created successfully", user: newUser });
+  } catch (error) {
+    console.log(error);
+    res.status(409).json({ message: error.message });
+  }
+};
+
+exports.verifyEmail = async (req, res) => {
+  try {
+    const user = await userSchema.findById(req.params.id);
+    if (!user) return res.status(400).json({ message: "User does not exist" });
+    const token = await Token.findOne({
+      userId: user._id,
+      token: req.params.token,
     });
-    await newUser.save();
-    res.status(201).json(newUser);
+    if (!token) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+    await userSchema.findByIdAndUpdate(user._id, { verified: true });
+    await Token.findByIdAndDelete(token._id);
+
+    res.status(200).json({ message: "Email verified successfully" });
   } catch (error) {
     res.status(409).json({ message: error.message });
   }
@@ -35,9 +95,9 @@ exports.loginUser = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password required" });
     }
-    let user = await Schema.findOne({ email: email });
+    let user = await userSchema.findOne({ email: email });
     if (!user) {
-      user = await Schema.findOne({ username: email });
+      user = await userSchema.findOne({ username: email });
     }
     if (!user) {
       return res.status(404).json({ message: "User does not exist" });
@@ -96,7 +156,7 @@ exports.qrCode = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
     const verified = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await Schema.findById(verified.user._id);
+    const user = await userSchema.findById(verified.user._id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -128,7 +188,7 @@ exports.enableTwoFactorAuth = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
     const verified = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await Schema.findById(verified.user._id);
+    const user = await userSchema.findById(verified.user._id);
     console.log(user, "user");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -161,7 +221,7 @@ exports.disableTwoFactorAuth = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
     const verified = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await Schema.findById(verified.user._id);
+    const user = await userSchema.findById(verified.user._id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -183,7 +243,7 @@ exports.resetPassword = async (req, res) => {
   try {
     const { email, oldpassword, newpassword, confirmnewpassword, code } =
       req.body;
-    const user = await Schema.findOne({ email: email });
+    const user = await userSchema.findOne({ email: email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -218,6 +278,4 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-
 // exports.forgetPassword = async (req, res) => {
-  
