@@ -48,9 +48,12 @@ exports.createUser = async (req, res) => {
       email: newUser.email,
       subject: "Verify your email address",
       text: "Welcome to Group 15 event management system",
-      html: await ejs.renderFile(__dirname + "/../views/verification_email.ejs", {
-        userInfo: userInfo,
-      }),
+      html: await ejs.renderFile(
+        __dirname + "/../views/verification_email.ejs",
+        {
+          userInfo: userInfo,
+        }
+      ),
     };
     await sendEmail(
       mailOptions.email,
@@ -58,7 +61,6 @@ exports.createUser = async (req, res) => {
       mailOptions.text,
       mailOptions.html
     );
-    
     console.log("LINK: ", message);
     res
       .status(201)
@@ -127,10 +129,7 @@ exports.loginUser = async (req, res) => {
       // expires in 1 day
       expiresIn: "1d",
     });
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-    });
+    res.cookie("token", token, {});
     user.token = token;
     res.status(200).json({ user, message: "Logged in successfully" });
   } catch (error) {
