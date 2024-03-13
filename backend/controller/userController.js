@@ -61,7 +61,6 @@ exports.createUser = async (req, res) => {
       mailOptions.text,
       mailOptions.html
     );
-
     console.log("LINK: ", message);
     res
       .status(201)
