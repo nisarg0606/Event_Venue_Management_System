@@ -40,7 +40,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ["admin", "venueOwner", "eventPlanner", "customer"],
+        enum: ["admin", "venueOwner/eventPlanner", "customer"],
         default: "customer",
     },
     twoFactorAuthEnabled: {

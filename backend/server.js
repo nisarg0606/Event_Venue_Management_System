@@ -30,6 +30,7 @@ mongoose
 
 // Routes
 app.use("/users", require("./routes/userRoutes")); //EG: ->  locahost:5000/users/login
+app.use("/venues", require("./routes/venueRoutes"));
 
 
 
