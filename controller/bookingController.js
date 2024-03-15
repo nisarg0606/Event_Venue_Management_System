@@ -74,4 +74,3 @@ exports.deleteBooking = async (req, res) => {
   }
 };
 
-

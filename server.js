@@ -5,6 +5,7 @@ const dotenv = require("dotenv").config({ path: ".env" });
 const path = require("path");
 const ejs = require("ejs");
 const cookieParser = require("cookie-parser");
+const redis = require("ioredis");
 
 // Create a new express application instance
 const app = express();
@@ -28,17 +29,14 @@ mongoose
   .then(() => console.log("MongoDB Connected..."))
   .catch((err) => console.log(err));
 
+
 // Routes
 app.use("/users", require("./routes/userRoutes")); //EG: ->  locahost:5000/users/login
 app.use("/venues", require("./routes/venueRoutes"));
-
-
-
-
+app.use("/activities", require("./routes/activityRoutes"));
 
 app.get("/", (req, res) => {
-    res.send("Hello World");
-    });
-
+  res.send("Hello World");
+});
 
 app.listen(PORT, () => console.log(`Server started on port ${PORT}`));

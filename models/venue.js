@@ -22,16 +22,16 @@ const venueSchema = new mongoose.Schema({
       type: String,
     },
   ],
-  imagesURL: [
-    {
-      type: String,
-    },
-  ],
-  imagesExpiry: [
-    {
-      type: Date,
-    },
-  ],
+  // imagesURL: [
+  //   {
+  //     type: String,
+  //   },
+  // ],
+  // imagesExpiry: [
+  //   {
+  //     type: Date,
+  //   },
+  // ],
   type: {
     type: String,
     required: true,
