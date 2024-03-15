@@ -66,8 +66,10 @@ exports.createActivity = async (req, res) => {
     const host = req.user._id;
     // if the venueOwner is the one creating the activity, the host will be the venueOwner and the activity will be approved
     // if the admin is the one creating the activity, the host will be the admin and the activity will be pending
-    const venueOwner = await venueSchema.findById(venue);
+    const venueDetails = await venueSchema.findById(venue);
     let status = "pending";
+    const venueOwner = venueDetails.venueOwner;
+    // console.log(venueOwner._id.toString(), host.toString());
     if (venueOwner._id.toString() === host.toString()) {
       status = "approved";
     }
@@ -197,9 +199,10 @@ exports.updateActivity = async (req, res) => {
         .json({ message: "Only venueOwner and admin can update an activity" });
     }
     const { id } = req.params;
-    if (!activitySchema.Types.ObjectId.isValid(id))
-      return res.status(404).send("No activity with that id");
     const activity = await activitySchema.findById(id);
+    if (!activity) {
+      return res.status(404).json({ message: "No activity found" });
+    }
     // if the activity is updated by other than the host who created the activity, then give an error
     if (activity.host.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -214,12 +217,8 @@ exports.updateActivity = async (req, res) => {
       participants_limit,
       price,
     } = req.body;
-    // check file upload for images
-    if (req.files.length > 5) {
-      return res.status(400).json({ message: "Only 5 images are allowed" });
-    }
     let images = [];
-    if(req.files){
+    if (req.files) {
       for (let i = 0; i < req.files.length; i++) {
         const file = req.files[i];
         const buffer = await sharp(file.buffer)
@@ -250,7 +249,9 @@ exports.updateActivity = async (req, res) => {
       price,
       images,
     });
-    res.status(200).json({ message: "Activity updated successfully", "activity": activity});
+    res
+      .status(200)
+      .json({ message: "Activity updated successfully", activity: activity });
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -267,14 +268,15 @@ exports.deleteActivity = async (req, res) => {
         .json({ message: "Only venueOwner and admin can delete an activity" });
     }
     const { id } = req.params;
-    if (!activitySchema.Types.ObjectId.isValid(id))
-      return res.status(404).send("No activity with that id");
     const activity = await activitySchema.findById(id);
+    if (!activity) {
+      return res.status(404).json({ message: "No activity found" });
+    }
     // if the activity is deleted by other than the host who created the activity, then give an error
     if (activity.host.toString() !== req.user._id.toString()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    await activitySchema.findByIdAndRemove(id);
+    await activitySchema.findByIdAndDelete(id);
     res.status(200).json({ message: "Activity deleted successfully" });
   } catch (error) {
     res.status(404).json({ message: error.message });
