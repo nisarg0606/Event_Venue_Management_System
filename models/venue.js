@@ -51,31 +51,39 @@ const venueSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  // timings: [
-  //   {
-  //     day: {
-  //       type: String,
-  //       required: true,
-  //     },
-  //     slots: [
-  //       {
-  //         time: {
-  //           type: String,
-  //           required: true,
-  //         },
-  //         status: {
-  //           type: String,
-  //           enum: ["available", "booked"],
-  //           default: "available",
-  //         },
-  //       },
-  //     ],
-  //   },
-  // ],
-  timings: {
-    type: String,
-    required: true,
-  },
+  timings: [
+    {
+      day: {
+        type: String,
+        enum: [
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday",
+          "friday",
+          "saturday",
+          "sunday",
+        ],
+        required: true,
+      },
+      times: [
+        {
+          from: {
+            type: String,
+            required: true,
+          },
+          to: {
+            type: String,
+            required: true,
+          },
+        },
+      ],
+    },
+  ],
+  // timings: {
+  //   type: String,
+  //   required: true,
+  // },
   availability: {
     type: String,
     enum: ["available", "unavailable"],
