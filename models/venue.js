@@ -80,10 +80,33 @@ const venueSchema = new mongoose.Schema({
       ],
     },
   ],
-  // timings: {
-  //   type: String,
-  //   required: true,
-  // },
+
+  // timings: [
+  //   {
+  //     day: {
+  //       type: String,
+  //       required: true,
+  //     },
+  //     slots: [
+  //       {
+  //         time: {
+  //           type: String,
+  //           required: true,
+  //         },
+  //         status: {
+  //           type: String,
+  //           enum: ["available", "booked"],
+  //           default: "available",
+  //         },
+  //       },
+  //     ],
+  //   },
+  // ],
+//   timings: {
+//     type: String,
+//     required: true,
+//   },
+// >>>>>>> master
   availability: {
     type: String,
     enum: ["available", "unavailable"],
