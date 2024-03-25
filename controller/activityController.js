@@ -282,3 +282,45 @@ exports.deleteActivity = async (req, res) => {
     res.status(404).json({ message: error.message });
   }
 };
+
+exports.approveActivity = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const activity = await activitySchema.findById(id).populate("venue");
+    if (!activity) {
+      return res.status(404).json({ message: "No activity found" });
+    }
+    const venueOwner = activity.venue.venueOwner;
+    if (req.user._id.toString() !== venueOwner._id.toString()) {
+      return res.status(401).json({
+        message:
+          "You are not the venue owner so you cannot approve the activity",
+      });
+    }
+    await activitySchema.findByIdAndUpdate(id, { status: "approved" });
+    res.status(200).json({ message: "Activity approved successfully" });
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
+exports.rejectActivity = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const activity = await activitySchema.findById(id).populate("venue");
+    if (!activity) {
+      return res.status(404).json({ message: "No activity found" });
+    }
+    const venueOwner = activity.venue.venueOwner;
+    if (req.user._id.toString() !== venueOwner._id.toString()) {
+      return res.status(401).json({
+        message:
+          "You are not the venue owner so you cannot reject the activity",
+      });
+    }
+    await activitySchema.findByIdAndUpdate(id, { status: "rejected" });
+    res.status(200).json({ message: "Activity rejected successfully" });
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};

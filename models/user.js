@@ -1,6 +1,26 @@
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
+    firstName: {
+        type: String,
+        required: true,
+        validate: {
+            validator: function (v) {
+                return /^[a-zA-Z]+$/.test(v);
+            },
+            message: (props) => `${props.value} is not a valid first name!`,
+        },
+    },
+    lastName: {
+        type: String,
+        required: false,
+        validate: {
+            validator: function (v) {
+                return /^[a-zA-Z]+$/.test(v);
+            },
+            message: (props) => `${props.value} is not a valid last name!`,
+        },
+    },
     username: {
         type: String,
         required: true,
@@ -15,6 +35,16 @@ const userSchema = new mongoose.Schema({
                 return /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(v);
             },
             message: (props) => `${props.value} is not a valid email address!`,
+        },
+    },
+    phone : {
+        type: String,
+        required: false,
+        validate : {
+            validator: function(v) {
+
+            },
+            message: (props) => "",
         },
     },
     verified: {

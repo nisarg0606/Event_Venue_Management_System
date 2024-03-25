@@ -1,4 +1,5 @@
-const bookingSchema = require("../models/booking");
+const bookingSchema = require("../models/venueBooking");
+
 const venueSchema = require("../models/venue");
 const userSchema = require("../models/user");
 
