@@ -126,10 +126,9 @@ exports.loginUser = async (req, res) => {
     user = user.toObject();
     delete user.password;
     const token = jwt.sign({ user }, process.env.JWT_SECRET, {
-      // expires in 1 day
-      expiresIn: "1d",
+      // expires in 7 day
+      expiresIn: "7d",
     });
-    res.cookie("token", token, {});
     user.token = token;
     res.status(200).json({ user, message: "Logged in successfully" });
   } catch (error) {
