@@ -144,7 +144,7 @@ exports.getActivities = async (req, res) => {
       }
       // Check if the date of the activity has passed
       if (new Date(activities[i].date) < new Date()) {
-        activities[i].active = False;
+        activities[i].active = false;
       }
     }
     res.status(200).json(activities);
@@ -180,7 +180,7 @@ exports.getActivity = async (req, res) => {
     }
     // Check if the date of the activity has passed
     if (new Date(activity.date) < new Date()) {
-      activity.active = False;
+      activity.active = false;
     }
     res.status(200).json(activity);
   } catch (error) {
@@ -321,6 +321,46 @@ exports.rejectActivity = async (req, res) => {
     await activitySchema.findByIdAndUpdate(id, { status: "rejected" });
     res.status(200).json({ message: "Activity rejected successfully" });
   } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
+
+exports.searchActivities = async (req, res) => {
+  try {
+    const { query } = req.query;
+    let activities = await activitySchema
+      .find({ $text: { $search: query } })
+      .populate("venue", "name location")
+      .populate("host", "name email")
+      .populate("participants", "name email");
+    if (!activities) {
+      return res.status(404).json({ message: "No activity found" });
+    }
+    for (let i = 0; i < activities.length; i++) {
+      activities[i] = activities[i].toObject();
+      activities[i].imagesURL = [];
+      for (let j = 0; j < activities[i].images.length; j++) {
+        let url = await redis.get(`activity:${activities[i]._id}:image:${j}`);
+        if (!url) {
+          url = await getSignedURLOfImage(activities[i].images[j]);
+          redis.set(
+            `activity:${activities[i]._id}:image:${j}`,
+            url,
+            "EX",
+            60 * 60 * 24 * 7
+          );
+        }
+        activities[i].imagesURL.push(url);
+      }
+      // Check if the date of the activity has passed
+      if (new Date(activities[i].date) < new Date()) {
+        activities[i].active = false;
+      }
+    }
+    res.status(200).json(activities);
+  } catch (error) {
+    console.log("Error:", error);
     res.status(404).json({ message: error.message });
   }
 };

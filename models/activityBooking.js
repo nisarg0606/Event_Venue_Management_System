@@ -1,35 +1,42 @@
 const { boolean } = require("joi");
 const moongose = require("mongoose");
 
-const activityBookingSchema = new moongose.Schema({
-    activity: {
-        type: moongose.Schema.Types.ObjectId,
-        ref: 'Activity',
-        required: true,
-    },
+const activityBookingSchema = new moongose.Schema(
+  {
     user: {
-        type: moongose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true,
+      type: moongose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
-    date: {
-        type: Date,
-        required: true,
+    activity: {
+      type: moongose.Schema.Types.ObjectId,
+      ref: "Activity",
+      required: true,
     },
-    participants: {
-        type: Number,
-        required: true,
+    booking_date: {
+      type: Date,
+      required: true,
     },
-    payment: {
-        type: moongose.Schema.Types.ObjectId,
-        ref: 'Payment',
-        required: true,
+    booking_time: {
+      type: String,
+      required: true,
     },
-    status: {
-        type: String,
-        enum: ["pending", "approved", "rejected"],
-        default: "pending",
+    booking_status: {
+      type: String,
+      required: true,
     },
-});
+    booking_price: {
+      type: Number,
+      required: true,
+    },
+    booking_quantity: {
+      type: Number,
+      required: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
 module.exports = moongose.model("ActivityBooking", activityBookingSchema);

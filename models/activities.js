@@ -3,7 +3,7 @@ const moongose = require("mongoose");
 const activitySchema = new moongose.Schema({
   host: {
     type: moongose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "User",
     required: true,
   },
   name: {
@@ -16,7 +16,7 @@ const activitySchema = new moongose.Schema({
   },
   venue: {
     type: moongose.Schema.Types.ObjectId,
-    ref: 'Venue',
+    ref: "Venue",
     required: true,
   },
   type_of_activity: {
@@ -48,7 +48,7 @@ const activitySchema = new moongose.Schema({
   participants: [
     {
       type: moongose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
     },
   ],
   price: {
@@ -65,10 +65,13 @@ const activitySchema = new moongose.Schema({
   dateLastUpdated: {
     type: Date,
     default: Date.now,
-  },active: {
+  },
+  active: {
     type: Boolean,
     default: true,
   },
 });
+
+activitySchema.index({ name: "text", description: "text" });
 
 module.exports = moongose.model("Activity", activitySchema);

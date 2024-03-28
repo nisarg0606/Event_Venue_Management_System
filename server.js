@@ -6,6 +6,7 @@ const path = require("path");
 const ejs = require("ejs");
 const cookieParser = require("cookie-parser");
 const redis = require("ioredis");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // Create a new express application instance
 const app = express();
@@ -34,6 +35,7 @@ mongoose
 app.use("/users", require("./routes/userRoutes")); //EG: ->  locahost:5000/users/login
 app.use("/venues", require("./routes/venueRoutes"));
 app.use("/activities", require("./routes/activityRoutes"));
+app.use("/venueBookings", require("./routes/venueBookingRoutes"));
 
 app.get("/", (req, res) => {
   res.send("Hello World");

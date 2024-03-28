@@ -15,6 +15,7 @@ router.get("/", venueController.getVenues);
 router.get("/myvenues", auth, venueController.getMyVenues);
 router.get("/:id", venueController.getVenue);
 router.get("/location/:location", venueController.getVenueByLocation);
+router.get("/search/:search", venueController.searchVenue);
 router.post("/", auth, upload.array("images", 4), venueController.createVenue);
 router.put("/:id", auth, upload.array("images", 4), venueController.updateVenue);
 router.delete("/:id", auth, venueController.deleteVenue);

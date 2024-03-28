@@ -119,4 +119,11 @@ const venueSchema = new mongoose.Schema({
   },
 });
 
+
+venueSchema.index({
+  name: "text",
+  description: "text",
+  location: "text",
+  type: "text",
+});
 module.exports = mongoose.model("Venue", venueSchema);

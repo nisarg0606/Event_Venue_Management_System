@@ -19,16 +19,11 @@ const venueBookingSchema = new moongose.Schema({
         type: String,
         required: true,
     },
-    participants: {
-        type: Number,
-        required: true,
+    status: {
+        type: String,
+        default: "pending",
+        enum: ["pending", "paid", "cancelled"],
     },
-    payment: {
-        type: moongose.Schema.Types.ObjectId,
-        ref: 'Payment',
-        required: true,
-    },
-    
 });
 
 module.exports = moongose.model("VenueBooking", venueBookingSchema);
