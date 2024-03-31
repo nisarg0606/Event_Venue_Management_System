@@ -276,4 +276,172 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// exports.forgetPassword = async (req, res) => {
+exports.forgetPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await userSchema.findOne({
+      email: email,
+    });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    let token = await new Token({
+      userId: user._id,
+      token: crypto.randomBytes(32).toString("hex"),
+    }).save();
+    console.log("TOKEN: ", token.token);
+    const userId = user._id;
+    const message = `${process.env.BASE_URL}/users/resetpassword/${userId}/${token.token}`;
+    let userInfo = {
+      username: user.username,
+      email: user.email,
+      link: message,
+    };
+    let mailOptions = {
+      email: user.email,
+      subject: "Reset your password",
+      text: "Here's the link to reset your password",
+      html: await ejs.renderFile(__dirname + "/../views/reset_password.ejs", {
+        userInfo: userInfo,
+      }),
+    };
+    await sendEmail(
+      mailOptions.email,
+      mailOptions.subject,
+      mailOptions.text,
+      mailOptions.html
+    );
+    console.log("LINK: ", message);
+    res.status(200).json({ message: "Password reset link sent to your email" });
+  } catch (error) {
+    res.status(409).json({ message: error.message });
+  }
+};
+
+exports.verifyTokenAndResetPassword = async (req, res) => {
+  try {
+    const { userId, token } = req.params;
+    const { newPassword, confirmPassword } = req.body;
+
+    // Check if new password and confirm password match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+
+    // Find the token in the database
+    const tokenData = await Token.findOne({ userId, token });
+
+    // If token is not found or is expired, send an error message
+    if (!tokenData) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    // Find the user by id
+    const user = await userSchema.findById(userId);
+
+    // If user is not found, send an error message
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    //hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update the user's password and save the user
+    user.password = hashedPassword;
+    await user.save();
+
+    // Delete the token from the database
+    await Token.deleteOne({ userId, token });
+
+    res.status(200).json({ message: "Password has been reset" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getUserProfile = async (req, res) => {
+  try {
+    // get token from middleware auth and it is stored in req.user
+    const user = req.user;
+    res.status(200).json({ user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const user = req.user;
+    const { firstName, lastName, username, email, phone, interestedIn } =
+      req.body;
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    if (username) user.username = username;
+    if (email) user.email = email;
+    if (phone) user.phone = phone;
+    if (interestedIn) user.interestedIn = interestedIn;
+    await user.save();
+    res.status(200).json({ message: "Profile updated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.deleteUser = async (req, res) => {
+  try {
+    const user = req.user;
+    await user.remove();
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const users = await userSchema.find();
+    res.status(200).json({ users });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await userSchema.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getPeopleWithSimilarInterests = async (req, res) => {
+  try {
+    const user = req.user;
+    const { interestedIn } = user;
+    const users = await userSchema.find({
+      interestedIn: { $in: interestedIn },
+      _id: { $ne: user._id },
+    });
+    res.status(200).json({ users });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.updateInterests = async (req, res) => {
+  try {
+    const user = req.user;
+    const { interestedIn } = req.body;
+    // it's an array of interests
+    user.interestedIn = interestedIn;
+    await user.save();
+    res.status(200).json({ message: "Interests updated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
