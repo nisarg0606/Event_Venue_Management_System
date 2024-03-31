@@ -72,6 +72,6 @@ const activitySchema = new moongose.Schema({
   },
 });
 
-activitySchema.index({ name: "text", description: "text" });
+activitySchema.index({ name: "text", description: "text", type_of_activity: "text" , date: "text", price: "number" });
 
 module.exports = moongose.model("Activity", activitySchema);

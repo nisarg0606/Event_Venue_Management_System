@@ -11,6 +11,7 @@ const upload = multer({ storage: storage });
 
 router.post("/", auth, upload.array("images", 5), activityController.createActivity);
 router.get("/", activityController.getActivities);
+router.get("/search", activityController.searchActivities);
 // router.get("/myactivities", auth, activityController.getMyActivities);
 router.get("/:id", activityController.getActivity);
 router.put("/:id", auth, activityController.updateActivity);

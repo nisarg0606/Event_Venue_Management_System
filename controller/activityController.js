@@ -111,7 +111,7 @@ exports.createActivity = async (req, res) => {
     });
     res.status(201).json({ message: "Activity created successfully" });
   } catch (error) {
-    console.log("Error:", error)
+    console.log("Error:", error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -238,8 +238,7 @@ exports.updateActivity = async (req, res) => {
         images.push(imageName);
       }
     }
-    const update = await activitySchema.findByIdAndUpdate
-    (id, {
+    const update = await activitySchema.findByIdAndUpdate(id, {
       name,
       description,
       venue,
@@ -250,8 +249,7 @@ exports.updateActivity = async (req, res) => {
       price,
       images,
     });
-    res.status(200).
-      json({ message: "Activity updated successfully", update });  
+    res.status(200).json({ message: "Activity updated successfully", update });
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -325,18 +323,31 @@ exports.rejectActivity = async (req, res) => {
   }
 };
 
-
 exports.searchActivities = async (req, res) => {
   try {
-    const { query } = req.query;
-    let activities = await activitySchema
-      .find({ $text: { $search: query } })
-      .populate("venue", "name location")
-      .populate("host", "name email")
-      .populate("participants", "name email");
-    if (!activities) {
-      return res.status(404).json({ message: "No activity found" });
+    const { name, type_of_activity, date, description, price } = req.query;
+    const searchConditions = [];
+    if (name) {
+      searchConditions.push({ name: { $regex: name, $options: "i" } });
     }
+    if (type_of_activity) {
+      searchConditions.push({
+        type_of_activity: { $regex: type_of_activity, $options: "i" },
+      });
+    }
+    if (date) {
+      searchConditions.push({ date: { $regex: date, $options: "i" } });
+    }
+    if (description) {
+      searchConditions.push({
+        description: { $regex: description, $options: "i" },
+      });
+    }
+    if (price) {
+      searchConditions.push({ price: { $regex: price, $options: "i" } });
+    }
+    let activities = await activitySchema.find({ $and: searchConditions });
+    // get images URL for each activity
     for (let i = 0; i < activities.length; i++) {
       activities[i] = activities[i].toObject();
       activities[i].imagesURL = [];
@@ -360,7 +371,6 @@ exports.searchActivities = async (req, res) => {
     }
     res.status(200).json(activities);
   } catch (error) {
-    console.log("Error:", error);
     res.status(404).json({ message: error.message });
   }
 };
