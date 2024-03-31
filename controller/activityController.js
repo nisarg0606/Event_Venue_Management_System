@@ -66,10 +66,9 @@ exports.createActivity = async (req, res) => {
     const host = req.user._id;
     // if the venueOwner is the one creating the activity, the host will be the venueOwner and the activity will be approved
     // if the admin is the one creating the activity, the host will be the admin and the activity will be pending
-    const venueDetails = await venueSchema.findById(venue);
+    let venueDetails = await venueSchema.findById(venue).populate("venueOwner");
     let status = "pending";
     const venueOwner = venueDetails.venueOwner;
-    // console.log(venueOwner._id.toString(), host.toString());
     if (venueOwner._id.toString() === host.toString()) {
       status = "approved";
     }
@@ -112,6 +111,7 @@ exports.createActivity = async (req, res) => {
     });
     res.status(201).json({ message: "Activity created successfully" });
   } catch (error) {
+    console.log("Error:", error)
     res.status(400).json({ message: error.message });
   }
 };
@@ -238,7 +238,8 @@ exports.updateActivity = async (req, res) => {
         images.push(imageName);
       }
     }
-    await activitySchema.findByIdAndUpdate(id, {
+    const update = await activitySchema.findByIdAndUpdate
+    (id, {
       name,
       description,
       venue,
@@ -249,9 +250,8 @@ exports.updateActivity = async (req, res) => {
       price,
       images,
     });
-    res
-      .status(200)
-      .json({ message: "Activity updated successfully", activity: activity });
+    res.status(200).
+      json({ message: "Activity updated successfully", update });  
   } catch (error) {
     res.status(404).json({ message: error.message });
   }

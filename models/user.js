@@ -80,6 +80,12 @@ const userSchema = new mongoose.Schema({
     twoFactorAuth: {
         type: String,
     },
+    // if the role is customer then the interestedIn field will be used
+    interestedIn: {
+        type: Array,
+        default: [],
+    },
+
 });
 
 module.exports = mongoose.model("User", userSchema);
