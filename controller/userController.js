@@ -18,7 +18,7 @@ app.set("view engine", "ejs");
 // common for all controllers to create a user(customer, venueOwner, eventPlanner)
 exports.createUser = async (req, res) => {
   try {
-    const { username, email, password, role } = req.body;
+    const { firstName, lastName, username, email, password, role } = req.body;
     let user = await userSchema.findOne({ email: email });
     if (user) {
       return res.status(400).json({ message: "User already exists" });
@@ -26,6 +26,8 @@ exports.createUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     let newUser = await new userSchema({
+      firstName,
+      lastName,
       username,
       email,
       password: hashedPassword,
@@ -40,7 +42,7 @@ exports.createUser = async (req, res) => {
     const message = `${process.env.BASE_URL}/users/verify/${newUser._id}/${token.token}`;
 
     let userInfo = {
-      username: newUser.username,
+      username: newUser.firstName,
       email: newUser.email,
       link: message,
     };
