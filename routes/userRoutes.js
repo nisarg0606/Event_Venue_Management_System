@@ -18,9 +18,9 @@ router.post("/resetForgotPassword", userController.verifyTokenAndResetPassword);
 
 // user profile routes
 router.get("/", auth, userController.getAllUsers);
-router.get("/:id", auth, userController.getUserById);
 router.get("/profile", auth, userController.getUserProfile);
 router.put("/profile", auth, userController.updateUserProfile);
 router.get("/similarInterests", auth, userController.getPeopleWithSimilarInterests);
+router.get("/:id", auth, userController.getUserById);
 
 module.exports = router;

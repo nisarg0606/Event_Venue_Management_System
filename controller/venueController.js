@@ -6,7 +6,6 @@ const dotenv = require("dotenv");
 const sharp = require("sharp");
 const path = require("path");
 const redis = require("../utils/redis");
-const venue = require("../models/venue");
 
 dotenv.config();
 
@@ -270,7 +269,11 @@ exports.getVenueByType = async (req, res) => {
 // for update delete the previous images and add new images
 exports.updateVenue = async (req, res) => {
   try {
-    const venue = await venueSchema.findById(req.params.id);
+    console.log(req.params.id);
+    const venue = await venueSchema.findById(req.params.id).then((venue) => {
+      return venue;
+    });
+    console.log(venue);
     // admin and venue owner can update the venue
     if (
       venue.venueOwner.toString() !== req.user._id.toString() &&
@@ -360,41 +363,31 @@ exports.getMyVenues = async (req, res) => {
     if (!venues) {
       return res.status(404).json({ message: "Venues not found" });
     }
-    let venues_json = {};
-    // Iterate over each venue
+    console.log("In My Venue")
+    const venues_json = {};
     for (let venue of venues) {
+      console.log(venue);
       venue = venue.toObject();
-      // create a new array to store the image URLs
       venue.imagesURL = [];
-      // Iterate over each image
       for (let i = 0; i < venue.images.length; i++) {
-        // check redis for the image URL
         let url = await redis.get(`venue:${venue._id}:image:${i}`);
         if (url) {
-          // console.log("URL from Redis in if: ", url);
           venue.imagesURL[i] = url;
-          // push venue to the venues_json object
           venues_json[venue._id] = venue;
         } else {
-          // If image URL does not exist or is expired, get a new signed URL
           url = await getSignedURLOfImage(venue.images[i]);
-          // Store the URL in Redis, set to expire after 7 days
-          // const redis_response = await redis.set(
           await redis.set(
             `venue:${venue._id}:image:${i}`,
             url,
             "EX",
             60 * 60 * 24 * 7
           );
-          // console.log("URL from Redis in else: ", redis_response.toString());
           venue.imagesURL[i] = url;
-          // push venue to the venues_json object
           venues_json[venue._id] = venue;
         }
       }
     }
-    // Send the venues and imageURL as the response
-    res.status(200).send({ venues: venues_json });
+    res.status(200).json({ venues: venues_json });
   } catch (error) {
     // If an error occurs, send a 404 response with the error message
     res.status(404).json({ message: error.message });

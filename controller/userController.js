@@ -365,16 +365,22 @@ exports.verifyTokenAndResetPassword = async (req, res) => {
 exports.getUserProfile = async (req, res) => {
   try {
     // get token from middleware auth and it is stored in req.user
-    const user = req.user;
+    let user = await userSchema.findById({ _id: req.user._id });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    user = user.toObject();
+    delete user.password;
     res.status(200).json({ user });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ message: error.message });
   }
 };
 
 exports.updateUserProfile = async (req, res) => {
   try {
-    const user = req.user;
+    let user = await userSchema.findById({ _id: req.user._id });
     const { firstName, lastName, username, email, phone, interestedIn } =
       req.body;
     if (firstName) user.firstName = firstName;
@@ -383,6 +389,7 @@ exports.updateUserProfile = async (req, res) => {
     if (email) user.email = email;
     if (phone) user.phone = phone;
     if (interestedIn) user.interestedIn = interestedIn;
+    // save the user
     await user.save();
     res.status(200).json({ message: "Profile updated successfully" });
   } catch (error) {
