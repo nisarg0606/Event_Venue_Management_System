@@ -96,20 +96,23 @@ exports.createActivity = async (req, res) => {
       images.push(imageName);
     }
 
-    activitySchema.create({
+    const activity = new activitySchema({
       name,
       description,
       venue,
+      host,
       type_of_activity,
       date,
       time,
       participants_limit,
       price,
-      host,
-      status,
       images,
+      status,
     });
-    res.status(201).json({ message: "Activity created successfully" });
+    await activity.save();
+    res
+      .status(201)
+      .json({ message: "Activity created successfully", activity });
   } catch (error) {
     console.log("Error:", error);
     res.status(400).json({ message: error.message });
@@ -217,8 +220,20 @@ exports.updateActivity = async (req, res) => {
       participants_limit,
       price,
     } = req.body;
-    let images = [];
-    if (req.files) {
+    if (req.files && req.files.length > 0) {
+      if (req.files.length + activity.images.length > 5) {
+        return res.status(400).json({ message: "Only 5 images are allowed" });
+      }
+      //delete the old images from the S3 bucket
+      for (let i = 0; i < activity.images.length; i++) {
+        const params = {
+          Bucket: bucketName,
+          Key: activity.images[i],
+        };
+        await s3Client.send(new aws_sdk.DeleteObjectCommand(params));
+      }
+      activity.images = [];
+      //upload the new images to the S3 bucket
       for (let i = 0; i < req.files.length; i++) {
         const file = req.files[i];
         const buffer = await sharp(file.buffer)
@@ -235,21 +250,19 @@ exports.updateActivity = async (req, res) => {
           ContentType: "image/png",
         };
         const data = await s3Client.send(new aws_sdk.PutObjectCommand(params));
-        images.push(imageName);
+        activity.images.push(imageName);
       }
     }
-    const update = await activitySchema.findByIdAndUpdate(id, {
-      name,
-      description,
-      venue,
-      type_of_activity,
-      date,
-      time,
-      participants_limit,
-      price,
-      images,
-    });
-    res.status(200).json({ message: "Activity updated successfully", update });
+    if (name) activity.name = name;
+    if (description) activity.description = description;
+    if (venue) activity.venue = venue;
+    if (type_of_activity) activity.type_of_activity = type_of_activity;
+    if (date) activity.date = date;
+    if (time) activity.time = time;
+    if (participants_limit) activity.participants_limit = participants_limit;
+    if (price) activity.price = price;
+    await activity.save();
+    res.status(200).json({ message: "Activity updated successfully" });
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
