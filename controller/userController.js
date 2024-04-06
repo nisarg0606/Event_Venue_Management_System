@@ -18,7 +18,7 @@ app.set("view engine", "ejs");
 // common for all controllers to create a user(customer, venueOwner, eventPlanner)
 exports.createUser = async (req, res) => {
   try {
-    const { firstName, lastName, username, email, password, role } = req.body;
+    const { firstName, lastName, username, email, password, role, interestedIn } = req.body;
     let user = await userSchema.findOne({ email: email });
     if (user) {
       return res.status(400).json({ message: "User already exists" });
@@ -32,6 +32,7 @@ exports.createUser = async (req, res) => {
       email,
       password: hashedPassword,
       role,
+      interestedIn,
     }).save();
 
     let token = await new Token({
