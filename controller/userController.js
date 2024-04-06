@@ -389,8 +389,8 @@ exports.updateUserProfile = async (req, res) => {
     if (email) user.email = email;
     if (phone) user.phone = phone;
     if (interestedIn) user.interestedIn = interestedIn;
-    // save the user
-    await user.save();
+    // update the user
+    await userSchema.findByIdAndUpdate(user._id, user);
     res.status(200).json({ message: "Profile updated successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });

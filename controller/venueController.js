@@ -269,12 +269,12 @@ exports.getVenueByType = async (req, res) => {
 // for update delete the previous images and add new images
 exports.updateVenue = async (req, res) => {
   try {
-    console.log(req.params.id);
-    const venue = await venueSchema.findById(req.params.id).then((venue) => {
-      return venue;
-    });
-    console.log(venue);
-    // admin and venue owner can update the venue
+    const { name, location, type, capacity, price, description, timings } =
+      req.body;
+    const venue = await venueSchema.findById(req.params.id);
+    if (!venue) {
+      return res.status(404).json({ message: "Venue not found" });
+    }
     if (
       venue.venueOwner.toString() !== req.user._id.toString() &&
       req.user.role !== "admin"
@@ -283,11 +283,17 @@ exports.updateVenue = async (req, res) => {
         .status(401)
         .json({ message: "You are not authorized to update this venue" });
     }
-    const { name, location, type, capacity, price, description, timings } =
-      req.body;
-    const images = [];
-    if (req.files) {
-      //delete previous images
+    if (name) venue.name = name;
+    if (location) venue.location = location;
+    if (type) venue.type = type;
+    if (capacity) venue.capacity = capacity;
+    if (price) venue.pricePerHour = price;
+    if (description) venue.description = description;
+    if (timings) venue.timings = timings;
+
+    // Update images only if new files are provided
+    if (req.files && req.files.length > 0) {
+      // Delete existing images from S3
       for (let i = 0; i < venue.images.length; i++) {
         const params = {
           Bucket: bucketName,
@@ -295,6 +301,10 @@ exports.updateVenue = async (req, res) => {
         };
         await s3Client.send(new aws_sdk.DeleteObjectCommand(params));
       }
+      // Clear existing images array
+      venue.images = [];
+
+      // Upload new images to S3 and update venue's images array
       for (let i = 0; i < req.files.length; i++) {
         const file = req.files[i];
         const buffer = await sharp(file.buffer)
@@ -309,21 +319,11 @@ exports.updateVenue = async (req, res) => {
           ContentType: file.mimetype,
         };
         await s3Client.send(new aws_sdk.PutObjectCommand(params));
-        images.push(fileName);
+        venue.images.push(fileName);
       }
     }
-    const updatedVenue = {
-      name,
-      location,
-      type,
-      capacity,
-      pricePerHour: price,
-      description,
-      timings,
-      images,
-    };
-    await venueSchema.findByIdAndUpdate(req.params.id, updatedVenue);
-    res.status(200).json({ message: "Venue updated successfully" });
+    await venue.save();
+    res.status(200).json({ message: "Venue updated successfully", venue });
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -363,10 +363,8 @@ exports.getMyVenues = async (req, res) => {
     if (!venues) {
       return res.status(404).json({ message: "Venues not found" });
     }
-    console.log("In My Venue")
     const venues_json = {};
     for (let venue of venues) {
-      console.log(venue);
       venue = venue.toObject();
       venue.imagesURL = [];
       for (let i = 0; i < venue.images.length; i++) {
@@ -400,8 +398,10 @@ exports.searchVenues = async (req, res) => {
     const searchConditions = [];
 
     if (name) searchConditions.push({ name: new RegExp(name, "i") });
-    if (description) searchConditions.push({ description: new RegExp(description, "i") });
-    if (location) searchConditions.push({ location: new RegExp(location, "i") });
+    if (description)
+      searchConditions.push({ description: new RegExp(description, "i") });
+    if (location)
+      searchConditions.push({ location: new RegExp(location, "i") });
     if (type) searchConditions.push({ type: new RegExp(type, "i") });
 
     let venues = [];
