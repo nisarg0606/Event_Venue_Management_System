@@ -152,7 +152,8 @@ exports.logoutUser = async (req, res) => {
 
 exports.qrCode = async (req, res) => {
   try {
-    const token = req.cookies.token;
+    console.log(req.token, "token");
+    const token = req.token;
     if (!token) {
       return res.status(401).json({ message: "Unauthorized" });
     }
