@@ -73,11 +73,6 @@ const venueSchema = new mongoose.Schema({
             type: String,
             required: true,
           },
-          status: {
-            type: String,
-            enum: ["available", "booked"],
-            default: "available",
-          },
         },
       ],
     },

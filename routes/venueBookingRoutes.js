@@ -4,7 +4,7 @@ const auth = require("../middleware/auth.js");
 const router = express.Router();
 
 // Create a new booking
-router.post("/", auth, venueBookingController.createAVenueBooking);
+router.post("/:venue_id", auth, venueBookingController.createAVenueBooking);
 // Retrieve all bookings
 router.get("/", auth, venueBookingController.findAllVenueBookings);
 // Retrieve a single booking with booking_id
@@ -17,6 +17,8 @@ router.get("/venue/:venue_id", auth, venueBookingController.findByVenue);
 router.put("/:booking_id", auth, venueBookingController.update);
 // Delete a booking with booking_id
 router.delete("/:booking_id", auth, venueBookingController.deleteBooking);
+// Get Available Slots
+router.get("/available/:venue_id", auth, venueBookingController.getAvailableSlots);
 
 
 

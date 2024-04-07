@@ -6,7 +6,7 @@ const dotenv = require("dotenv");
 const sharp = require("sharp");
 const path = require("path");
 const redis = require("../utils/redis");
-
+const { parse, format, addHours, set } = require("date-fns");
 dotenv.config();
 
 const randomImageName = () => {
@@ -75,6 +75,28 @@ exports.createVenue = async (req, res) => {
         images.push(fileName);
       }
     }
+    const updatedTimings = timings.map((timing) => ({
+      day: timing.day,
+      slots: timing.slots.reduce((acc, slot) => {
+        let fromTime = parse(slot.from, "hh:mm aa", new Date());
+        let toTime = parse(slot.to, "hh:mm aa", new Date());
+        let current = fromTime;
+        if (format(toTime, "h:mm aa") === "12:00 AM") {
+          toTime = set(toTime, { hours: 23, minutes: 59 });
+        }
+        while (current < toTime) {
+          const nextHour = addHours(current, 1);
+          acc.push({
+            from: format(current, "hh:mm aa"),
+            to: format(nextHour, "hh:mm aa"),
+          });
+          current = nextHour;
+        }
+        return acc;
+      }, []),
+    }));
+
+    console.log(updatedTimings);
     venue = new venueSchema({
       name,
       location,
@@ -82,7 +104,7 @@ exports.createVenue = async (req, res) => {
       capacity,
       pricePerHour: price,
       description,
-      timings,
+      timings: updatedTimings,
       images,
       venueOwner,
     });
@@ -115,7 +137,7 @@ exports.getVenue = async (req, res) => {
   try {
     let venue = await venueSchema
       .findById(req.params.id)
-      .populate("venueOwner", "username email");
+      .populate("venueOwner", "username email firstName lastName");
     if (!venue) {
       return res.status(404).json({ message: "Venue not found" });
     }
@@ -158,7 +180,7 @@ exports.getVenues = async (req, res) => {
   try {
     let venues = await venueSchema
       .find()
-      .populate("venueOwner", "username email");
+      .populate("venueOwner", "username email firstName lastName");
     if (!venues) {
       return res.status(404).json({ message: "Venues not found" });
     }

@@ -2,67 +2,52 @@ const express = require("express");
 const router = express.Router();
 const venueModel = require("../models/venue.js");
 const VenueBookingModel = require("../models/venueBooking.js");
+const { parse, isAfter, isBefore, format } = require("date-fns");
+const { enUS } = require("date-fns/locale");
+const venue = require("../models/venue.js");
+const venueBooking = require("../models/venueBooking.js");
 
-function checkAvailability(venue_id, booking_date, booking_time_slot) {
-  let available = true;
-  VenueBookingModel.findById(venue_id, (err, data) => {
-    if (err) {
-      if (err.kind === "not_found") {
-        available = true;
-      } else {
-        available = false;
-      }
-    } else {
-        // here we are checking if the booking date and time slot is already taken by another user
-      data.forEach((booking) => {
-        if (
-          booking.user._id !== req.user._id &&
-          booking.booking_date === booking_date &&
-          booking.booking_time_slot === booking_time_slot
-        ) {
-          available = false;
-        }
-      });
+exports.createAVenueBooking = async (req, res) => {
+  try {
+    const { venue_id } = req.params;
+    const { date, timeSlot } = req.body;
+
+    // Check if the venue exists
+    const venue = await venueModel.findById(venue_id);
+    if (!venue) {
+      return res.status(404).json({ message: "Venue not found" });
     }
-  });
-  return available;
-}
-// Create a new booking
-exports.createAVenueBooking = (req, res) => {
-  // Validate request
-  if (!req.body) {
-    res.status(400).send({
-      message: "Content can not be empty!",
+
+    // Check if the date is valid
+    let bookingDate = parse(date, "yyyy-MM-dd", new Date());
+    if (isNaN(bookingDate)) {
+      return res.status(400).json({ message: "Invalid date" });
+    }
+    // Check if the time slot is available
+    const existingBooking = await VenueBookingModel.findOne({
+      venue: venue_id,
+      booking_date: bookingDate,
+      booking_time_slot: timeSlot,
     });
-  }
-  // Check if the booking date and time slot is available
-  if (
-    checkAvailability(
-      req.body.venue_id,
-      req.body.booking_date,
-      req.body.booking_time_slot
-    )
-  ) {
-    // Create a booking
-    const venueBooking = new VenueBookingModel({
-      venue_id: req.body.venue_id,
-      user: req.user,
-      booking_date: req.body.booking_date,
-      booking_time_slot: req.body.booking_time_slot,
+    if (existingBooking) {
+      return res.status(409).json({ message: "Slot already booked" });
+    }
+
+    // Create a new booking
+    const newBooking = new VenueBookingModel({
+      venue: venue_id,
+      user: req.user._id, // Assuming you have authentication middleware that sets req.user
+      booking_date: bookingDate,
+      booking_time_slot: timeSlot,
     });
-    // Save booking in the database
-    VenueBookingModel.create(venueBooking, (err, data) => {
-      if (err)
-        res.status(500).send({
-          message:
-            err.message || "Some error occurred while creating the booking.",
-        });
-      else res.status(201).send(data);
-    });
-  } else {
-    res.status(400).send({
-      message: "Booking date and time slot already taken",
-    });
+    await newBooking.save();
+
+    res
+      .status(201)
+      .json({ message: "Slot booked successfully", booking: newBooking });
+  } catch (error) {
+    console.error("Error booking slot:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -229,21 +214,75 @@ exports.deleteBooking = (req, res) => {
           message: "Booking date is less than 48 hours away",
         });
       } else {
-        VenueBookingModel.findByIdAndDelete(req.params.booking_id, (err, data) => {
-          if (err) {
-            if (err.kind === "not_found") {
-              res.status(404).send({
-                message: `Not found booking with id ${req.params.booking_id}.`,
-              });
-            } else {
-              res.status(500).send({
-                message:
-                  "Could not delete booking with id " + req.params.booking_id,
-              });
-            }
-          } else res.send({ message: `Booking was deleted successfully!` });
-        });
+        VenueBookingModel.findByIdAndDelete(
+          req.params.booking_id,
+          (err, data) => {
+            if (err) {
+              if (err.kind === "not_found") {
+                res.status(404).send({
+                  message: `Not found booking with id ${req.params.booking_id}.`,
+                });
+              } else {
+                res.status(500).send({
+                  message:
+                    "Could not delete booking with id " + req.params.booking_id,
+                });
+              }
+            } else res.send({ message: `Booking was deleted successfully!` });
+          }
+        );
       }
     }
   });
+};
+
+exports.getAvailableSlots = async (req, res) => {
+  try {
+    const { venue_id } = req.params;
+    const { date } = req.query;
+
+    // Check if the venue exists
+    const venue = await venueModel.findById(venue_id);
+    if (!venue) {
+      return res.status(404).json({ message: "Venue not found" });
+    }
+
+    // Check if the date is valid
+    const bookingDate = parse(date, "yyyy-MM-dd", new Date());
+    if (isNaN(bookingDate)) {
+      return res.status(400).json({ message: "Invalid date" });
+    }
+
+    // Get all bookings for the specified date
+    const bookings = await VenueBookingModel.find({
+      venue: venue_id,
+      booking_date: bookingDate,
+    });
+
+    // Get all slots for the specified day
+    const dayOfWeek = format(bookingDate, "EEEE", { locale: enUS });
+    const daySlots = venue.timings.find(
+      (timing) => timing.day.toLowerCase() === dayOfWeek.toLowerCase()
+    );
+
+    // If there are no bookings on the specified date, all slots are available
+    if (bookings.length === 0) {
+      return res.status(200).json({ availableSlots: daySlots.slots });
+    } else {
+      // Get all booked slots
+      const bookedSlots = bookings.map((booking) => booking.booking_time_slot);
+      // Filter out the booked slots for the specified date
+      const availableSlots = daySlots.slots.filter((slot) => {
+        // Extract the time slot string from the slot object
+        const slotString = `${slot.from} - ${slot.to}`;
+        // Check if the extracted slot string is not in bookedSlots
+        return !bookedSlots.includes(slotString);
+      });
+
+      return res.status(200).json({ availableSlots });
+    }
+  } catch (error) {
+    console.error("Error fetching available time slots:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
 };
