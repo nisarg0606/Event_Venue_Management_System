@@ -184,7 +184,7 @@ exports.qrCode = async (req, res) => {
 
 exports.enableTwoFactorAuth = async (req, res) => {
   try {
-    const token = req.cookies.token;
+    const token = req.token;
     const { code } = req.body;
     if (!token) {
       return res.status(401).json({ message: "Unauthorized" });
