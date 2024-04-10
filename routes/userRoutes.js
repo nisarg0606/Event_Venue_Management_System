@@ -12,7 +12,7 @@ router.post("/2fa", auth, userController.enableTwoFactorAuth);
 router.get("/logout", userController.logoutUser);
 
 //get 2fa status
-router.get("/2faStatus", userController.getUser2FAStatus);
+router.post("/2faStatus", userController.getUser2FAStatus);
 
 //get user by username or email
 router.get("/search", auth, userController.getUserByEmailOrUsername);

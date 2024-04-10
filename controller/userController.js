@@ -508,3 +508,42 @@ exports.updateInterests = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.CustomerDashboard = async (req, res) => {
+  try {
+    // it will contain past activitiesa and upcoming activities
+    const user = req.user;
+
+    // get all the activities booked by the user
+    const activities = await activitySchema.find({ user: user._id });
+    const pastActivities = [];
+    const upcomingActivities = [];
+    const currentDate = new Date();
+    activities.forEach((activity) => {
+      if (activity.date < currentDate) {
+        pastActivities.push(activity);
+      } else {
+        upcomingActivities.push(activity);
+      }
+    });
+    res.status(200).json({ pastActivities, upcomingActivities });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.HostDashboard = async (req, res) => {
+  try {
+    const user = req.user;
+    // get all the venues and activities created by the user
+    // show other people's bookings on the venue
+    // show the bookings on the activities
+    const venues = await venueSchema.find({ user: user._id });
+    const activities = await activitySchema
+      .find({ user: user._id })
+      .populate("participants");
+    res.status(200).json({ venues, activities });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
