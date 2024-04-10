@@ -18,7 +18,15 @@ app.set("view engine", "ejs");
 // common for all controllers to create a user(customer, venueOwner, eventPlanner)
 exports.createUser = async (req, res) => {
   try {
-    const { firstName, lastName, username, email, password, role, interestedIn } = req.body;
+    const {
+      firstName,
+      lastName,
+      username,
+      email,
+      password,
+      role,
+      interestedIn,
+    } = req.body;
     let user = await userSchema.findOne({ email: email });
     if (user) {
       return res.status(400).json({ message: "User already exists" });
@@ -425,6 +433,50 @@ exports.getUserById = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
     res.status(200).json({ user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getUserByEmailOrUsername = async (req, res) => {
+  try {
+    const { email, username } = req.body;
+    let user;
+    if (email) {
+      user = await userSchema.findOne({ email: email }).select("-password");
+    }
+    if (username) {
+      user = await userSchema.findOne({ username }).select("-password");
+    }
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({ user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getUser2FAStatus = async (req, res) => {
+  try {
+    const { email, username } = req.body;
+    let user;
+    if (email) {
+      user = await userSchema.findOne({
+        email: email,
+      });
+    }
+    if (username) {
+      user = await userSchema.findOne({
+        username: username,
+      });
+    }
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json({
+      twoFactorAuthEnabled: user.twoFactorAuthEnabled,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
