@@ -9,7 +9,7 @@ router.post("/login", userController.loginUser);
 router.get("/verify/:id/:token", userController.verifyEmail);
 router.get("/qrcode", auth, userController.qrCode);
 router.post("/2fa", auth, userController.enableTwoFactorAuth);
-router.get("/logout", userController.logoutUser);
+router.get("/logout", auth, userController.logoutUser);
 
 //get 2fa status
 router.post("/2faStatus", userController.getUser2FAStatus);

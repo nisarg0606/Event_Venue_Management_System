@@ -10,6 +10,7 @@ const crypto = require("node:crypto");
 const sendEmail = require("../utils/email");
 const ejs = require("ejs");
 const express = require("express");
+const blacklistTokenSchema = require("../models/blackListToken");
 
 const app = express();
 
@@ -151,7 +152,18 @@ exports.loginUser = async (req, res) => {
 // in logout use the auth middleware to verify the user
 exports.logoutUser = async (req, res) => {
   try {
-    res.clearCookie("token");
+    // remove the token from the user object and add it to the blacklist
+    const token = req.token;
+    console.log(token, "token");
+    if (!token) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const verified = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await userSchema.findById(verified.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    await new blacklistTokenSchema({ token }).save();
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     res.status(409).json({ message: error.message });
@@ -459,24 +471,19 @@ exports.getUserByEmailOrUsername = async (req, res) => {
 
 exports.getUser2FAStatus = async (req, res) => {
   try {
-    const { email, username } = req.body;
-    let user;
-    if (email) {
-      user = await userSchema.findOne({
-        email: email,
-      });
-    }
-    if (username) {
-      user = await userSchema.findOne({
-        username: username,
-      });
+    const { email } = req.body;
+    let user = await userSchema
+      .findOne({ email: email })
+      .select("twoFactorAuthEnabled");
+    if (!user) {
+      user = await userSchema
+        .findOne({ username: email })
+        .select("twoFactorAuthEnabled");
     }
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    res.status(200).json({
-      twoFactorAuthEnabled: user.twoFactorAuthEnabled,
-    });
+    res.status(200).json({ twoFactorAuthStatus: user.twoFactorAuthEnabled });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
