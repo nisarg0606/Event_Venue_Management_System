@@ -13,7 +13,7 @@ router.get("/logout", auth, userController.logoutUser);
 
 //get 2fa status
 router.post("/2faStatus", userController.getUser2FAStatus);
-router.post("/disable2fa", auth, userController.disableTwoFactorAuth);
+router.get("/disable2fa", auth, userController.disableTwoFactorAuth);
 
 //get user by username or email
 router.get("/search", auth, userController.getUserByEmailOrUsername);
@@ -32,6 +32,9 @@ router.get(
   auth,
   userController.getPeopleWithSimilarInterests
 );
+
+// user dashboard routes
+router.get("/dashboard", auth, userController.UserDashboard);
 router.get("/:id", auth, userController.getUserById);
 
 module.exports = router;

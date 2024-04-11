@@ -554,3 +554,17 @@ exports.HostDashboard = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.UserDashboard = async (req, res) => {
+  try {
+    const user = req.user;
+    if (user.role === "customer") {
+      return CustomerDashboard(req, res);
+    }
+    if (user.role === "venueOwner/eventPlanner") {
+      return HostDashboard(req, res);
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
