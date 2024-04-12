@@ -27,6 +27,8 @@ const s3Client = new aws_sdk.S3Client({
 });
 
 exports.createVenue = async (req, res) => {
+  console.log("req.body: ", req.body);
+  console.log("req.file: ", req.file);
   try {
     const { name, location, type, capacity, price, description, timings } =
       req.body;
@@ -38,15 +40,13 @@ exports.createVenue = async (req, res) => {
       !price ||
       !description ||
       !timings ||
-      !req.files
+      !req.file
     ) {
       return res.status(400).json({
         message: "All fields are required and at least one image is required",
       });
     }
-    const images = [];
-    // console.log(req.files);
-    // console.log(req.body);
+
     const venueOwner = req.user._id;
     let venue = await venueSchema.findOne({
       name: name,
@@ -56,24 +56,25 @@ exports.createVenue = async (req, res) => {
       return res.status(400).json({ message: "Venue already exists" });
     }
     // console.log("line 66");
-    if (req.files && req.files.length > 0) {
-      for (let i = 0; i < req.files.length; i++) {
-        const file = req.files[i];
-        const buffer = await sharp(file.buffer)
-          .resize({ width: 500, height: 500 })
-          .toBuffer();
-        file.buffer = buffer;
-        const fileName = randomImageName();
-        console.log(fileName);
-        const params = {
-          Bucket: bucketName,
-          Body: file.buffer,
-          Key: fileName,
-          ContentType: file.mimetype,
-        };
-        await s3Client.send(new aws_sdk.PutObjectCommand(params));
-        images.push(fileName);
-      }
+    let image;
+    if (req.file) {
+      const buffer = await sharp(req.file.buffer)
+        .resize({ width: 500, height: 500 })
+        .toBuffer();
+      req.file.buffer = buffer;
+      const fileName = randomImageName();
+      const params = {
+        Bucket: bucketName,
+        Body: req.file.buffer,
+        Key: fileName,
+        ContentType: req.file.mimetype,
+      };
+      await s3Client.send(new aws_sdk.PutObjectCommand(params));
+      image = fileName;
+    } else {
+      return res
+        .status(400)
+        .json({ message: "At least one image is required" });
     }
     const updatedTimings = timings.map((timing) => ({
       day: timing.day,
@@ -105,7 +106,7 @@ exports.createVenue = async (req, res) => {
       pricePerHour: price,
       description,
       timings: updatedTimings,
-      images,
+      image,
       venueOwner,
     });
     await venue.save();
@@ -142,30 +143,24 @@ exports.getVenue = async (req, res) => {
       return res.status(404).json({ message: "Venue not found" });
     }
     venue = venue.toObject();
-
-    // create a new array to store the image URLs
-    venue.imagesURL = [];
-    // Iterate over each image
-    for (let i = 0; i < venue.images.length; i++) {
-      // check redis for the image URL
-      let url = await redis.get(`venue:${venue._id}:image:${i}`);
-      if (url) {
-        // console.log("URL from Redis in if: ", url);
-        venue.imagesURL[i] = url;
-      } else {
-        // If image URL does not exist or is expired, get a new signed URL
-        url = await getSignedURLOfImage(venue.images[i]);
-        // Store the URL in Redis, set to expire after 7 days
-        // const redis_response = await redis.set(
-        await redis.set(
-          `venue:${venue._id}:image:${i}`,
-          url,
-          "EX",
-          60 * 60 * 24 * 7
-        );
-        // console.log("URL from Redis in else: ", redis_response.toString());
-        venue.imagesURL[i] = url;
-      }
+    // check redis for the image URL
+    let url = await redis.get(`venue:${venue._id}:image:0`);
+    if (url) {
+      // console.log("URL from Redis in if: ", url);
+      venue.imageURL = url;
+    } else {
+      // If image URL does not exist or is expired, get a new signed URL
+      url = await getSignedURLOfImage(venue.image);
+      // Store the URL in Redis, set to expire after 7 days
+      // const redis_response = await redis.set(
+      await redis.set(
+        `venue:${venue._id}:image:0`,
+        url,
+        "EX",
+        60 * 60 * 24 * 7
+      );
+      // console.log("URL from Redis in else: ", redis_response.toString());
+      venue.imageURL = url;
     }
     // Send the venue and imageURL as the response
     res.status(200).json({ venue });
@@ -188,33 +183,23 @@ exports.getVenues = async (req, res) => {
     // Iterate over each venue
     for (let venue of venues) {
       venue = venue.toObject();
-      // create a new array to store the image URLs
-      venue.imagesURL = [];
-      // Iterate over each image
-      for (let i = 0; i < venue.images.length; i++) {
-        // check redis for the image URL
-        let url = await redis.get(`venue:${venue._id}:image:${i}`);
-        if (url) {
-          // console.log("URL from Redis in if: ", url);
-          venue.imagesURL[i] = url;
-          // push venue to the venues_json object
-          venues_json[venue._id] = venue;
-        } else {
-          // If image URL does not exist or is expired, get a new signed URL
-          url = await getSignedURLOfImage(venue.images[i]);
-          // Store the URL in Redis, set to expire after 7 days
-          // const redis_response = await redis.set(
-          await redis.set(
-            `venue:${venue._id}:image:${i}`,
-            url,
-            "EX",
-            60 * 60 * 24 * 7
-          );
-          // console.log("URL from Redis in else: ", redis_response.toString());
-          venue.imagesURL[i] = url;
-          // push venue to the venues_json object
-          venues_json[venue._id] = venue;
-        }
+      // Check Redis for the image URLs
+      let url = await redis.get(`venue:${venue._id}:image:0`);
+      if (url) {
+        venue.imageURL = url;
+        venues_json[venue._id] = venue;
+      } else {
+        // If image URL does not exist or is expired, get a new signed URL
+        url = await getSignedURLOfImage(venue.image);
+        // Store the URL in Redis, set to expire after 7 days
+        await redis.set(
+          `venue:${venue._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+        venue.imageURL = url;
+        venues_json[venue._id] = venue;
       }
     }
     // Send the venues and imageURL as the response
@@ -236,24 +221,21 @@ exports.getVenueByLocation = async (req, res) => {
     }
     for (let venue of venues) {
       venue = venue.toObject();
-      venue.imagesURL = [];
       let venues_json = {};
-      for (let i = 0; i < venue.images.length; i++) {
-        let url = await redis.get(`venue:${venue._id}:image:${i}`);
-        if (url) {
-          venue.imagesURL[i] = url;
-          venues_json[venue._id] = venue;
-        } else {
-          url = await getSignedURLOfImage(venue.images[i]);
-          await redis.set(
-            `venue:${venue._id}:image:${i}`,
-            url,
-            "EX",
-            60 * 60 * 24 * 7
-          );
-          venue.imagesURL[i] = url;
-          venues_json[venue._id] = venue;
-        }
+      let url = await redis.get(`venue:${venue._id}:image:0`);
+      if (url) {
+        venue.imageURL = url;
+        venues_json[venue._id] = venue;
+      } else {
+        url = await getSignedURLOfImage(venue.image);
+        await redis.set(
+          `venue:${venue._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+        venue.imageURL = url;
+        venues_json[venue._id] = venue;
       }
     }
     res.status(200).json({ venues: venues_json });
@@ -271,15 +253,19 @@ exports.getVenueByType = async (req, res) => {
       return res.status(404).json({ message: "Venue not found" });
     }
     for (let venue of venues) {
-      for (let i = 0; i < venue.images.length; i++) {
-        if (venue.imagesURL[i] && venue.imagesExpiry[i] > new Date()) {
-          imageURL.push(venue.imagesURL[i]);
-        } else {
-          let url = await getSignedURLOfImage(venue.images[i]);
-          venue.imagesURL[i] = url;
-          venue.imagesExpiry[i] = new Date(Date.now() + 60 * 60 * 24 * 7);
-          await venueSchema.findByIdAndUpdate(venue._id, venue);
-        }
+      venue = venue.toObject();
+      let url = await redis.get(`venue:${venue._id}:image:0`);
+      if (url) {
+        venue.imageURL = url;
+      } else {
+        url = await getSignedURLOfImage(venue.image);
+        await redis.set(
+          `venue:${venue._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+        venue.imageURL = url;
       }
     }
     res.status(200).json(venues);
@@ -312,37 +298,22 @@ exports.updateVenue = async (req, res) => {
     if (price) venue.pricePerHour = price;
     if (description) venue.description = description;
     if (timings) venue.timings = timings;
-
-    // Update images only if new files are provided
-    if (req.files && req.files.length > 0) {
-      // Delete existing images from S3
-      for (let i = 0; i < venue.images.length; i++) {
-        const params = {
-          Bucket: bucketName,
-          Key: venue.images[i],
-        };
-        await s3Client.send(new aws_sdk.DeleteObjectCommand(params));
-      }
-      // Clear existing images array
-      venue.images = [];
-
-      // Upload new images to S3 and update venue's images array
-      for (let i = 0; i < req.files.length; i++) {
-        const file = req.files[i];
-        const buffer = await sharp(file.buffer)
-          .resize({ width: 500, height: 500 })
-          .toBuffer();
-        file.buffer = buffer;
-        const fileName = randomImageName();
-        const params = {
-          Bucket: bucketName,
-          Body: file.buffer,
-          Key: fileName,
-          ContentType: file.mimetype,
-        };
-        await s3Client.send(new aws_sdk.PutObjectCommand(params));
-        venue.images.push(fileName);
-      }
+    if (req.file) {
+      const buffer = await sharp(req.file.buffer)
+        .resize({ width: 500, height: 500 })
+        .toBuffer();
+      req.file.buffer = buffer;
+      const fileName = randomImageName();
+      const params = {
+        Bucket: bucketName,
+        Body: req.file.buffer,
+        Key: fileName,
+        ContentType: req.file.mimetype,
+      };
+      await s3Client.send(new aws_sdk.PutObjectCommand(params));
+      venue.image = fileName;
+    } else {
+      venue.image = venue.image;
     }
     await venue.save();
     res.status(200).json({ message: "Venue updated successfully", venue });
@@ -363,13 +334,11 @@ exports.deleteVenue = async (req, res) => {
         .status(401)
         .json({ message: "You are not authorized to delete this venue" });
     }
-    for (let i = 0; i < venue.images.length; i++) {
-      const params = {
-        Bucket: bucketName,
-        Key: venue.images[i],
-      };
-      await s3Client.send(new aws_sdk.DeleteObjectCommand(params));
-    }
+    const params = {
+      Bucket: bucketName,
+      Key: venue.image,
+    };
+    await s3Client.send(new aws_sdk.DeleteObjectCommand(params));
     await venueSchema.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: "Venue deleted successfully" });
   } catch (error) {
@@ -388,23 +357,20 @@ exports.getMyVenues = async (req, res) => {
     const venues_json = {};
     for (let venue of venues) {
       venue = venue.toObject();
-      venue.imagesURL = [];
-      for (let i = 0; i < venue.images.length; i++) {
-        let url = await redis.get(`venue:${venue._id}:image:${i}`);
-        if (url) {
-          venue.imagesURL[i] = url;
-          venues_json[venue._id] = venue;
-        } else {
-          url = await getSignedURLOfImage(venue.images[i]);
-          await redis.set(
-            `venue:${venue._id}:image:${i}`,
-            url,
-            "EX",
-            60 * 60 * 24 * 7
-          );
-          venue.imagesURL[i] = url;
-          venues_json[venue._id] = venue;
-        }
+      let url = await redis.get(`venue:${venue._id}:image:0`);
+      if (url) {
+        venue.imageURL = url;
+        venues_json[venue._id] = venue;
+      } else {
+        url = await getSignedURLOfImage(venue.image);
+        await redis.set(
+          `venue:${venue._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+        venue.imageURL = url;
+        venues_json[venue._id] = venue;
       }
     }
     res.status(200).json({ venues: venues_json });
@@ -440,23 +406,20 @@ exports.searchVenues = async (req, res) => {
     let venues_json = {};
     for (let venue of venues) {
       venue = venue.toObject();
-      venue.imagesURL = [];
-      for (let i = 0; i < venue.images.length; i++) {
-        let url = await redis.get(`venue:${venue._id}:image:${i}`);
-        if (url) {
-          venue.imagesURL[i] = url;
-          venues_json[venue._id] = venue;
-        } else {
-          url = await getSignedURLOfImage(venue.images[i]);
-          await redis.set(
-            `venue:${venue._id}:image:${i}`,
-            url,
-            "EX",
-            60 * 60 * 24 * 7
-          );
-          venue.imagesURL[i] = url;
-          venues_json[venue._id] = venue;
-        }
+      let url = await redis.get(`venue:${venue._id}:image:0`);
+      if (url) {
+        venue.imageURL = url;
+        venues_json[venue._id] = venue;
+      } else {
+        url = await getSignedURLOfImage(venue.image);
+        await redis.set(
+          `venue:${venue._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+        venue.imageURL = url;
+        venues_json[venue._id] = venue;
       }
     }
 

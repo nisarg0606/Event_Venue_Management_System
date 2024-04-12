@@ -17,7 +17,10 @@ const venueSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  images: [String],
+  image: {
+    type: String,
+    required: true,
+  },
   type: {
     type: String,
     required: true,
