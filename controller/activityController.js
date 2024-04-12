@@ -70,32 +70,29 @@ exports.createActivity = async (req, res) => {
     let venueDetails = await venueSchema.findById(venue).populate("venueOwner");
     let status = "pending";
     const venueOwner = venueDetails.venueOwner;
-    if (venueOwner._id.toString() === host.toString()) {
-      status = "approved";
-    }
+    // if (venueOwner._id.toString() === host.toString()) {
+    status = "approved";
+    // }
     // check file upload for images
-    if (req.files.length > 5) {
-      return res.status(400).json({ message: "Only 5 images are allowed" });
+    if (req.files.length > 1) {
+      return res.status(400).json({ message: "Only 1 images is allowed" });
     }
-    let images = [];
-    for (let i = 0; i < req.files.length; i++) {
-      const file = req.files[i];
-      const buffer = await sharp(file.buffer)
-        .png({
-          quality: 80,
-        })
-        .toBuffer();
-      file.buffer = buffer;
-      const imageName = randomImageName();
-      const params = {
-        Bucket: bucketName,
-        Key: imageName,
-        Body: file.buffer,
-        ContentType: "image/png",
-      };
-      const data = await s3Client.send(new aws_sdk.PutObjectCommand(params));
-      images.push(imageName);
-    }
+    const file = req.files[0];
+    const buffer = await sharp(file.buffer)
+      .png({
+        quality: 80,
+      })
+      .toBuffer();
+    file.buffer = buffer;
+    const imageName = randomImageName();
+    const params = {
+      Bucket: bucketName,
+      Key: imageName,
+      Body: file.buffer,
+      ContentType: "image/png",
+    };
+    await s3Client.send(new aws_sdk.PutObjectCommand(params));
+    const image = imageName;
 
     const activity = new activitySchema({
       name,
@@ -108,7 +105,7 @@ exports.createActivity = async (req, res) => {
       end_time,
       participants_limit,
       price,
-      images,
+      image,
       status,
     });
     await activity.save();
@@ -133,20 +130,17 @@ exports.getActivities = async (req, res) => {
     }
     for (let i = 0; i < activities.length; i++) {
       activities[i] = activities[i].toObject();
-      activities[i].imagesURL = [];
-      for (let j = 0; j < activities[i].images.length; j++) {
-        let url = await redis.get(`activity:${activities[i]._id}:image:${j}`);
-        if (!url) {
-          url = await getSignedURLOfImage(activities[i].images[j]);
-          redis.set(
-            `activity:${activities[i]._id}:image:${j}`,
-            url,
-            "EX",
-            60 * 60 * 24 * 7
-          );
-        }
-        activities[i].imagesURL.push(url);
+      let url = await redis.get(`activity:${activities[i]._id}:image:0`);
+      if (!url) {
+        url = await getSignedURLOfImage(activities[i].image);
+        redis.set(
+          `activity:${activities[i]._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
       }
+      activities[i].imageURL = url;
       // Check if the date of the activity has passed
       if (new Date(activities[i].date) < new Date()) {
         activities[i].active = false;
@@ -169,20 +163,18 @@ exports.getActivity = async (req, res) => {
       return res.status(404).json({ message: "No activity found" });
     }
     activity = activity.toObject();
-    activity.imagesURL = [];
-    for (let i = 0; i < activity.images.length; i++) {
-      let url = await redis.get(`activity:${activity._id}:image:${i}`);
-      if (!url) {
-        url = await getSignedURLOfImage(activity.images[i]);
-        redis.set(
-          `activity:${activity._id}:image:${i}`,
-          url,
-          "EX",
-          60 * 60 * 24 * 7
-        );
-      }
-      activity.imagesURL.push(url);
+    let url = await redis.get(`activity:${activity._id}:image:0`);
+    if (!url) {
+      url = await getSignedURLOfImage(activity.image);
+      redis.set(
+        `activity:${activity._id}:image:0`,
+        url,
+        "EX",
+        60 * 60 * 24 * 7
+      );
     }
+    activity.imageURL = url;
+
     // Check if the date of the activity has passed
     if (new Date(activity.date) < new Date()) {
       activity.active = false;
@@ -223,37 +215,32 @@ exports.updateActivity = async (req, res) => {
       price,
     } = req.body;
     if (req.files && req.files.length > 0) {
-      if (req.files.length + activity.images.length > 5) {
-        return res.status(400).json({ message: "Only 5 images are allowed" });
+      if (req.files.length > 1) {
+        return res.status(400).json({ message: "Only 1 image is allowed" });
       }
       //delete the old images from the S3 bucket
-      for (let i = 0; i < activity.images.length; i++) {
-        const params = {
-          Bucket: bucketName,
-          Key: activity.images[i],
-        };
-        await s3Client.send(new aws_sdk.DeleteObjectCommand(params));
-      }
-      activity.images = [];
-      //upload the new images to the S3 bucket
-      for (let i = 0; i < req.files.length; i++) {
-        const file = req.files[i];
-        const buffer = await sharp(file.buffer)
-          .png({
-            quality: 80,
-          })
-          .toBuffer();
-        file.buffer = buffer;
-        const imageName = randomImageName();
-        const params = {
-          Bucket: bucketName,
-          Key: imageName,
-          Body: file.buffer,
-          ContentType: "image/png",
-        };
-        const data = await s3Client.send(new aws_sdk.PutObjectCommand(params));
-        activity.images.push(imageName);
-      }
+      let params = {
+        Bucket: bucketName,
+        Key: activity.image,
+      };
+      await s3Client.send(new aws_sdk.DeleteObjectCommand(params));
+      //upload the new image
+      const file = req.files[0];
+      const buffer = await sharp(file.buffer)
+        .png({
+          quality: 80,
+        })
+        .toBuffer();
+      file.buffer = buffer;
+      const imageName = randomImageName();
+      params = {
+        Bucket: bucketName,
+        Key: imageName,
+        Body: file.buffer,
+        ContentType: "image/png",
+      };
+      await s3Client.send(new aws_sdk.PutObjectCommand(params));
+      activity.image = imageName;
     }
     if (name) activity.name = name;
     if (description) activity.description = description;

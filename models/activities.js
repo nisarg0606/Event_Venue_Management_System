@@ -23,11 +23,10 @@ const activitySchema = new moongose.Schema({
     type: String,
     required: true,
   },
-  images: [
-    {
-      type: String,
-    },
-  ],
+  image: {
+    type: String,
+    required: true,
+  },
   date: {
     type: Date,
     required: true,
