@@ -74,10 +74,10 @@ exports.createActivity = async (req, res) => {
     status = "approved";
     // }
     // check file upload for images
-    if (req.files.length > 1) {
-      return res.status(400).json({ message: "Only 1 images is allowed" });
-    }
-    const file = req.files[0];
+    // if (req.files.length > 1) {
+    //   return res.status(400).json({ message: "Only 1 images is allowed" });
+    // }
+    const file = req.file;
     const buffer = await sharp(file.buffer)
       .png({
         quality: 80,
@@ -214,10 +214,7 @@ exports.updateActivity = async (req, res) => {
       participants_limit,
       price,
     } = req.body;
-    if (req.files && req.files.length > 0) {
-      if (req.files.length > 1) {
-        return res.status(400).json({ message: "Only 1 image is allowed" });
-      }
+    if (req.file) {
       //delete the old images from the S3 bucket
       let params = {
         Bucket: bucketName,
@@ -225,7 +222,7 @@ exports.updateActivity = async (req, res) => {
       };
       await s3Client.send(new aws_sdk.DeleteObjectCommand(params));
       //upload the new image
-      const file = req.files[0];
+      const file = req.file;
       const buffer = await sharp(file.buffer)
         .png({
           quality: 80,
@@ -241,6 +238,8 @@ exports.updateActivity = async (req, res) => {
       };
       await s3Client.send(new aws_sdk.PutObjectCommand(params));
       activity.image = imageName;
+    } else {
+      activity.image = activity.image;
     }
     if (name) activity.name = name;
     if (description) activity.description = description;
