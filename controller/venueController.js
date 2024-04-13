@@ -27,25 +27,24 @@ const s3Client = new aws_sdk.S3Client({
 });
 
 exports.createVenue = async (req, res) => {
-  console.log("req.body: ", req.body);
-  console.log("req.file: ", req.file);
+  // console.log("req.body: ", req.body);
+  // console.log("req.file: ", req.file);
   try {
-    const { name, location, type, capacity, price, description, timings } =
+    let { name, location, type, capacity, price, description, timings } =
       req.body;
-    if (
-      !name ||
-      !location ||
-      !type ||
-      !capacity ||
-      !price ||
-      !description ||
-      !timings ||
-      !req.file
-    ) {
-      return res.status(400).json({
-        message: "All fields are required and at least one image is required",
-      });
-    }
+    if (!name) return res.status(400).json({ message: "Name is required" });
+    if (!location)
+      return res.status(400).json({ message: "Location is required" });
+    if (!type) return res.status(400).json({ message: "Type is required" });
+    if (!capacity)
+      return res.status(400).json({ message: "Capacity is required" });
+    if (!price) return res.status(400).json({ message: "Price is required" });
+    if (!description)
+      return res.status(400).json({ message: "Description is required" });
+    if (!timings)
+      return res.status(400).json({ message: "Timings is required" });
+    if (!req.file)
+      return res.status(400).json({ message: "Image is required" });
 
     const venueOwner = req.user._id;
     let venue = await venueSchema.findOne({
@@ -55,7 +54,7 @@ exports.createVenue = async (req, res) => {
     if (venue) {
       return res.status(400).json({ message: "Venue already exists" });
     }
-    // console.log("line 66");
+
     let image;
     if (req.file) {
       const buffer = await sharp(req.file.buffer)
@@ -76,26 +75,53 @@ exports.createVenue = async (req, res) => {
         .status(400)
         .json({ message: "At least one image is required" });
     }
-    const updatedTimings = timings.map((timing) => ({
-      day: timing.day,
-      slots: timing.slots.reduce((acc, slot) => {
-        let fromTime = parse(slot.from, "hh:mm aa", new Date());
-        let toTime = parse(slot.to, "hh:mm aa", new Date());
-        let current = fromTime;
-        if (format(toTime, "h:mm aa") === "12:00 AM") {
-          toTime = set(toTime, { hours: 23, minutes: 59 });
-        }
-        while (current < toTime) {
-          const nextHour = addHours(current, 1);
-          acc.push({
-            from: format(current, "hh:mm aa"),
-            to: format(nextHour, "hh:mm aa"),
-          });
-          current = nextHour;
-        }
-        return acc;
-      }, []),
-    }));
+
+    // if timings is in json format like this :
+    // timings: '{"day":"monday","slots":[{"from":"10:00 PM","to":"11:00 PM"}]}'
+    // then convert it to array of objects like this:
+    // timings: [
+    //   {
+    //     day: "monday",
+    //     slots: [
+    //       {
+    //         from: "10:00 PM",
+    //         to: "11:00 PM",
+    //       },
+    //     ],
+    //   },
+    // ]
+    if (typeof timings === "string") {
+      const tempTimings = timings;
+      console.log("tempTimings: ", tempTimings);
+      timings = [];
+      timings = timings.concat(tempTimings);
+    }
+    console.log("timings: ", timings);
+
+    // Parse timings array from string to object
+    const updatedTimings = timings.map((timingStr) => {
+      const timingObj = JSON.parse(timingStr);
+      return {
+        day: timingObj.day,
+        slots: timingObj.slots.reduce((acc, slot) => {
+          let fromTime = parse(slot.from, "hh:mm aa", new Date());
+          let toTime = parse(slot.to, "hh:mm aa", new Date());
+          let current = fromTime;
+          if (format(toTime, "h:mm aa") === "12:00 AM") {
+            toTime = set(toTime, { hours: 23, minutes: 59 });
+          }
+          while (current < toTime) {
+            const nextHour = addHours(current, 1);
+            acc.push({
+              from: format(current, "hh:mm aa"),
+              to: format(nextHour, "hh:mm aa"),
+            });
+            current = nextHour;
+          }
+          return acc;
+        }, []),
+      };
+    });
 
     console.log(updatedTimings);
     venue = new venueSchema({
@@ -109,6 +135,7 @@ exports.createVenue = async (req, res) => {
       image,
       venueOwner,
     });
+    console.log("venue: ", venue);
     await venue.save();
     res.status(201).json({ message: "Venue created successfully", venue });
   } catch (error) {
