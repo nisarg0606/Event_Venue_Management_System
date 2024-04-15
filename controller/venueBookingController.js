@@ -36,7 +36,7 @@ exports.createAVenueBooking = async (req, res) => {
     // Create a new booking
     const newBooking = new VenueBookingModel({
       venue: venue_id,
-      user: req.user._id, // Assuming you have authentication middleware that sets req.user
+      user: req.user._id,
       booking_date: bookingDate,
       booking_time_slot: timeSlot,
     });
@@ -261,13 +261,29 @@ exports.getAvailableSlots = async (req, res) => {
 
     // Get all slots for the specified day
     const dayOfWeek = format(bookingDate, "EEEE", { locale: enUS });
+    // console.log(dayOfWeek);
     const daySlots = venue.timings.find(
       (timing) => timing.day.toLowerCase() === dayOfWeek.toLowerCase()
     );
+    console.log(daySlots);
+    // if there are no slots for the day
+    if (!daySlots) {
+      return res.status(200).json({ message: "No slots available" });
+    }
 
     // If there are no bookings on the specified date, all slots are available
     if (bookings.length === 0) {
-      return res.status(200).json({ availableSlots: daySlots.slots });
+      // find where the daySlots is in array of venue.timings
+      const index = venue.timings.findIndex(
+        (timing) => timing.day.toLowerCase() === dayOfWeek.toLowerCase()
+      );
+      console.log(index);
+      const slots = venue.timings[index].slots;
+      // if there are no slots for the day
+      if (slots.length === 0) {
+        return res.status(200).json({ message: "No slots available" });
+      }
+      return res.status(200).json({ availableSlots: slots });
     } else {
       // Get all booked slots
       const bookedSlots = bookings.map((booking) => booking.booking_time_slot);
