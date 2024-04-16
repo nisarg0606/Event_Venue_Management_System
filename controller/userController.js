@@ -493,9 +493,35 @@ exports.getPeopleWithSimilarInterests = async (req, res) => {
   try {
     const user = req.user;
     const { interestedIn } = user;
-    const users = await userSchema.find({
+    if (!interestedIn) {
+      return getPeople(req, res);
+    }
+    let users = await userSchema.find({
       interestedIn: { $in: interestedIn },
       _id: { $ne: user._id },
+    });
+    users.map((user) => {
+      return {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+      };
+    });
+    res.status(200).json({ users });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getPeople = async (req, res) => {
+  try {
+    let users = await userSchema.find();
+    users = users.map((user) => {
+      return {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+      };
     });
     res.status(200).json({ users });
   } catch (error) {
