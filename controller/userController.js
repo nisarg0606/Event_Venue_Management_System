@@ -500,11 +500,12 @@ exports.getPeopleWithSimilarInterests = async (req, res) => {
       interestedIn: { $in: interestedIn },
       _id: { $ne: user._id },
     });
-    users.map((user) => {
+    users = users.map((user) => {
       return {
         id: user._id,
         username: user.username,
         email: user.email,
+        interestedIn: user.interestedIn,
       };
     });
     res.status(200).json({ users });
@@ -521,6 +522,7 @@ exports.getPeople = async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        interestedIn: user.interestedIn,
       };
     });
     res.status(200).json({ users });
