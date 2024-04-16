@@ -32,6 +32,7 @@ router.get(
   auth,
   userController.getPeopleWithSimilarInterests
 );
+router.put("/interests", auth, userController.updateInterests);
 
 // user dashboard routes
 router.get("/dashboard", auth, userController.UserDashboard);

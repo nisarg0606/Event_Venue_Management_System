@@ -403,7 +403,7 @@ exports.getUserProfile = async (req, res) => {
 exports.updateUserProfile = async (req, res) => {
   try {
     let user = await userSchema.findById({ _id: req.user._id });
-    const { firstName, lastName, username, email, phone, interestedIn } =
+    let { firstName, lastName, username, email, phone, interestedIn } =
       req.body;
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
@@ -412,6 +412,9 @@ exports.updateUserProfile = async (req, res) => {
     if (phone) user.phone = phone;
     if (interestedIn) user.interestedIn = interestedIn;
     // update the user
+    // interestedIn is a array of interests
+    interestedIn = interestedIn.split(",");
+    user.interestedIn = interestedIn;
     await userSchema.findByIdAndUpdate(user._id, user);
     res.status(200).json({ message: "Profile updated successfully" });
   } catch (error) {
@@ -534,8 +537,11 @@ exports.getPeople = async (req, res) => {
 exports.updateInterests = async (req, res) => {
   try {
     const user = req.user;
-    const { interestedIn } = req.body;
-    // it's an array of interests
+    let { interestedIn } = req.body;
+    if (!interestedIn) {
+      return res.status(400).json({ message: "Interests required" });
+    }
+    interestedIn = interestedIn.split(",");
     user.interestedIn = interestedIn;
     await user.save();
     res.status(200).json({ message: "Interests updated successfully" });
