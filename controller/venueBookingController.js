@@ -81,7 +81,7 @@ exports.findByVenue = async (req, res) => {
       upcoming = [];
     let venueBooking = await VenueBookingModel.find({
       venue: req.params.venue_id,
-    });
+    }).populate("user", "firstName lastName username email");
     if (!venueBooking)
       return res
         .status(404)
