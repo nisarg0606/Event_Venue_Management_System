@@ -17,7 +17,7 @@ router.post(
 );
 router.get("/", activityController.getActivities);
 router.get("/search", activityController.searchActivities);
-// router.get("/myactivities", auth, activityController.getMyActivities);
+router.get("/myactivities", auth, activityController.getMyActivities);
 router.get("/:id", activityController.getActivity);
 router.put(
   "/:id",

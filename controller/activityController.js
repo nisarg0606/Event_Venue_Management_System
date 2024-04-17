@@ -185,6 +185,40 @@ exports.getActivity = async (req, res) => {
   }
 };
 
+exports.getMyActivities = async (req, res) => {
+  try {
+    let activities = await activitySchema
+      .find({ host: req.user._id })
+      .populate("venue", "name location")
+      .populate("host", "name email")
+      .populate("participants", "name email");
+    if (!activities) {
+      return res.status(404).json({ message: "No activity found" });
+    }
+    for (let i = 0; i < activities.length; i++) {
+      activities[i] = activities[i].toObject();
+      let url = await redis.get(`activity:${activities[i]._id}:image:0`);
+      if (!url) {
+        url = await getSignedURLOfImage(activities[i].image);
+        redis.set(
+          `activity:${activities[i]._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+      }
+      activities[i].imageURL = url;
+      // Check if the date of the activity has passed
+      if (new Date(activities[i].date) < new Date()) {
+        activities[i].active = false;
+      }
+    }
+    res.status(200).json(activities);
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
 exports.updateActivity = async (req, res) => {
   try {
     if (

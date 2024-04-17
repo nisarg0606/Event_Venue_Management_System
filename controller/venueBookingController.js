@@ -6,6 +6,7 @@ const { parse, isAfter, isBefore, format, parseISO } = require("date-fns");
 const { enUS } = require("date-fns/locale");
 const venue = require("../models/venue.js");
 const venueBooking = require("../models/venueBooking.js");
+const { date } = require("joi");
 
 exports.createAVenueBooking = async (req, res) => {
   try {
@@ -52,26 +53,25 @@ exports.createAVenueBooking = async (req, res) => {
 };
 
 // Retrieve all bookings
-exports.findAllVenueBookings = (req, res) => {
-  let past = [],
-    upcoming = [];
-  VenueBookingModel.find((err, data) => {
-    if (err)
-      res.status(500).send({
-        message:
-          err.message || "Some error occurred while retrieving bookings.",
-      });
-    else {
-      data.forEach((booking) => {
-        if (booking.booking_date < new Date()) {
-          past.push(booking);
-        } else {
-          upcoming.push(booking);
-        }
-      });
-      res.status(200).send({ past, upcoming });
-    }
-  });
+exports.findAllVenueBookings = async (req, res) => {
+  try {
+    let past = [],
+      upcoming = [];
+    let allVenueBookings = await VenueBookingModel.find();
+    allVenueBookings.forEach((booking) => {
+      if (booking.booking_date < new Date()) {
+        past.push(booking);
+      }
+      if (booking.booking_date > new Date()) {
+        upcoming.push(booking);
+      }
+    });
+    res.status(200).send({ past, upcoming });
+  } catch (err) {
+    res.status(500).send({
+      message: err.message || "Some error occurred while retrieving bookings.",
+    });
+  }
 };
 
 // Retrieve all bookings for a specific venue
@@ -86,7 +86,7 @@ exports.findByVenue = (req, res) => {
       });
     else {
       data.forEach((booking) => {
-        if (booking.booking_date < new Date()) {
+        if (booking.booking_date < parse(date, "yyyy-MM-dd", new Date())) {
           past.push(booking);
         } else {
           upcoming.push(booking);
