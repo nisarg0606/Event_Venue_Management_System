@@ -12,7 +12,7 @@ const upload = multer({ storage: storage });
 router.get("/", venueController.getVenues);
 router.get("/myvenues", auth, venueController.getMyVenues);
 router.get("/search", venueController.searchVenues);
-router.get("/myvenue/search", auth, venueController.searchVenues);
+router.get("/myvenues/search", auth, venueController.searchVenues);
 router.get("/:id", venueController.getVenue);
 router.get("/location/:location", venueController.getVenueByLocation);
 router.post("/", auth, upload.single("image"), venueController.createVenue);
