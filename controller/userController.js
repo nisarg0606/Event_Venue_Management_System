@@ -413,8 +413,10 @@ exports.updateUserProfile = async (req, res) => {
     if (interestedIn) user.interestedIn = interestedIn;
     // update the user
     // interestedIn is a array of interests
-    interestedIn = interestedIn.split(",");
-    user.interestedIn = interestedIn;
+    if (interestedIn) {
+      interestedIn = interestedIn.split(",");
+      user.interestedIn = interestedIn;
+    }
     await userSchema.findByIdAndUpdate(user._id, user);
     res.status(200).json({ message: "Profile updated successfully" });
   } catch (error) {
