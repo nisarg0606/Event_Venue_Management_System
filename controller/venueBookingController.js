@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const venueModel = require("../models/venue.js");
 const VenueBookingModel = require("../models/venueBooking.js");
-const { parse, isAfter, isBefore, format } = require("date-fns");
+const { parse, isAfter, isBefore, format, parseISO } = require("date-fns");
 const { enUS } = require("date-fns/locale");
 const venue = require("../models/venue.js");
 const venueBooking = require("../models/venueBooking.js");
@@ -78,7 +78,7 @@ exports.findAllVenueBookings = (req, res) => {
 exports.findByVenue = (req, res) => {
   let past = [],
     upcoming = [];
-  VenueBooking.findByVenue(req.params.venue_id, (err, data) => {
+  VenueBookingModel.findByVenue(req.params.venue_id, (err, data) => {
     if (err)
       res.status(500).send({
         message:
@@ -247,8 +247,9 @@ exports.getAvailableSlots = async (req, res) => {
       return res.status(404).json({ message: "Venue not found" });
     }
 
-    // Check if the date is valid
+    // Parse the date
     const bookingDate = parse(date, "yyyy-MM-dd", new Date());
+    // Check if the date is valid
     if (isNaN(bookingDate)) {
       return res.status(400).json({ message: "Invalid date" });
     }
@@ -259,34 +260,26 @@ exports.getAvailableSlots = async (req, res) => {
       booking_date: bookingDate,
     });
 
-    // Get all slots for the specified day
+    // Get the day of the week
     const dayOfWeek = format(bookingDate, "EEEE", { locale: enUS });
-    // console.log(dayOfWeek);
+
+    // Find venue timings for the day
     const daySlots = venue.timings.find(
       (timing) => timing.day.toLowerCase() === dayOfWeek.toLowerCase()
     );
-    console.log(daySlots);
-    // if there are no slots for the day
-    if (!daySlots) {
+
+    // If no slots for the day, return no slots available
+    if (!daySlots || !daySlots.slots || daySlots.slots.length === 0) {
       return res.status(200).json({ message: "No slots available" });
     }
 
     // If there are no bookings on the specified date, all slots are available
     if (bookings.length === 0) {
-      // find where the daySlots is in array of venue.timings
-      const index = venue.timings.findIndex(
-        (timing) => timing.day.toLowerCase() === dayOfWeek.toLowerCase()
-      );
-      console.log(index);
-      const slots = venue.timings[index].slots;
-      // if there are no slots for the day
-      if (slots.length === 0) {
-        return res.status(200).json({ message: "No slots available" });
-      }
-      return res.status(200).json({ availableSlots: slots });
+      return res.status(200).json({ availableSlots: daySlots.slots });
     } else {
       // Get all booked slots
       const bookedSlots = bookings.map((booking) => booking.booking_time_slot);
+
       // Filter out the booked slots for the specified date
       const availableSlots = daySlots.slots.filter((slot) => {
         // Extract the time slot string from the slot object
