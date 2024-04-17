@@ -75,27 +75,26 @@ exports.findAllVenueBookings = async (req, res) => {
 };
 
 // Retrieve all bookings for a specific venue
-exports.findByVenue = (req, res) => {
+exports.findByVenue = async (req, res) => {
   try {
     let past = [],
       upcoming = [];
-    VenueBookingModel.find(req.params.venue_id, (err, data) => {
-      if (err)
-        res.status(500).send({
-          message:
-            err.message || "Some error occurred while retrieving bookings.",
-        });
-      else {
-        data.forEach((booking) => {
-          if (booking.booking_date < new Date()) {
-            past.push(booking);
-          } else {
-            upcoming.push(booking);
-          }
-        });
-        res.send({ past, upcoming });
+    let venueBooking = await VenueBookingModel.find({
+      venue: req.params.venue_id,
+    });
+    if (!venueBooking)
+      return res
+        .status(404)
+        .send({ message: "No bookings found for this venue" });
+    venueBooking.forEach((booking) => {
+      if (booking.booking_date < new Date()) {
+        past.push(booking);
+      }
+      if (booking.booking_date > new Date()) {
+        upcoming.push(booking);
       }
     });
+    res.status(200).send({ past, upcoming });
   } catch (error) {
     res.status(500).send({
       message:
