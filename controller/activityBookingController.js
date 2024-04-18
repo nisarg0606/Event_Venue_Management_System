@@ -5,13 +5,7 @@ const user = require("../models/user");
 // create a new activity booking
 exports.createActivityBooking = async (req, res) => {
   try {
-    const {
-      activityId,
-      bookingDate,
-      bookingTime,
-      bookingPrice,
-      bookingQuantity,
-    } = req.body;
+    let { activityId, bookingQuantity } = req.body;
     const userId = req.user._id;
 
     let activityDetails = await activity.findById(activityId);
@@ -38,10 +32,10 @@ exports.createActivityBooking = async (req, res) => {
     const newActivityBooking = new activityBooking({
       user: userId,
       activity: activityId,
-      booking_date: bookingDate,
-      booking_time: bookingTime,
+      booking_date: new Date().toISOString().slice(0, 10),
+      booking_time: new Date().toISOString().slice(11, 19),
       booking_status: "booked",
-      booking_price: bookingPrice,
+      booking_price: activityDetails.price * bookingQuantity,
       booking_quantity: bookingQuantity,
     });
 
@@ -53,6 +47,7 @@ exports.createActivityBooking = async (req, res) => {
       data: savedActivityBooking,
     });
   } catch (error) {
+    console.log(error);
     res.status(400).json({
       success: false,
       message: error.message,

@@ -304,7 +304,7 @@ exports.getVenueByType = async (req, res) => {
 // for update delete the previous images and add new images
 exports.updateVenue = async (req, res) => {
   try {
-    const { name, location, type, capacity, price, description, timings } =
+    let { name, location, type, capacity, price, description, timings } =
       req.body;
     const venue = await venueSchema.findById(req.params.id);
     if (!venue) {
@@ -324,7 +324,36 @@ exports.updateVenue = async (req, res) => {
     if (capacity) venue.capacity = capacity;
     if (price) venue.pricePerHour = price;
     if (description) venue.description = description;
-    if (timings) venue.timings = timings;
+    if (timings) {
+      if (typeof timings === "string") {
+        const tempTimings = timings;
+        timings = [];
+        timings = timings.concat(tempTimings);
+      }
+      venue.timings = timings.map((timingStr) => {
+        const timingObj = JSON.parse(timingStr);
+        return {
+          day: timingObj.day,
+          slots: timingObj.slots.reduce((acc, slot) => {
+            let fromTime = parse(slot.from, "hh:mm aa", new Date());
+            let toTime = parse(slot.to, "hh:mm aa", new Date());
+            let current = fromTime;
+            if (format(toTime, "h:mm aa") === "12:00 AM") {
+              toTime = set(toTime, { hours: 23, minutes: 59 });
+            }
+            while (current < toTime) {
+              const nextHour = addHours(current, 1);
+              acc.push({
+                from: format(current, "hh:mm aa"),
+                to: format(nextHour, "hh:mm aa"),
+              });
+              current = nextHour;
+            }
+            return acc;
+          }, []),
+        };
+      });
+    }
     if (req.file) {
       const buffer = await sharp(req.file.buffer)
         .resize({ width: 500, height: 500 })
@@ -342,7 +371,6 @@ exports.updateVenue = async (req, res) => {
     } else {
       venue.image = venue.image;
     }
-    await venue.save();
     res.status(200).json({ message: "Venue updated successfully", venue });
   } catch (error) {
     res.status(404).json({ message: error.message });

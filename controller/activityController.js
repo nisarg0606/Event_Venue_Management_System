@@ -69,6 +69,18 @@ exports.createActivity = async (req, res) => {
     // if the admin is the one creating the activity, the host will be the admin and the activity will be pending
     let venueDetails = await venueSchema.findById(venue).populate("venueOwner");
     let status = "pending";
+    // check if there are any other bookings for the same slot
+    const bookings = await activitySchema.find({
+      venue,
+      date,
+      start_time,
+      end_time,
+    });
+    if (bookings.length > 0) {
+      return res.status(400).json({
+        message: "There is already an activity booked for the same slot",
+      });
+    }
     const venueOwner = venueDetails.venueOwner;
     // if (venueOwner._id.toString() === host.toString()) {
     status = "approved";

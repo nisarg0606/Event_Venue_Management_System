@@ -30,12 +30,12 @@ mongoose
   .then(() => console.log("MongoDB Connected..."))
   .catch((err) => console.log(err));
 
-
 // Routes
 app.use("/users", require("./routes/userRoutes")); //EG: ->  locahost:5000/users/login
 app.use("/venues", require("./routes/venueRoutes"));
 app.use("/activities", require("./routes/activityRoutes"));
 app.use("/venueBookings", require("./routes/venueBookingRoutes"));
+app.use("/activityBookings", require("./routes/activityBookingRoutes"));
 
 app.get("/", (req, res) => {
   res.send("Hello World");

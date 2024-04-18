@@ -24,28 +24,36 @@ exports.createAVenueBooking = async (req, res) => {
     if (isNaN(bookingDate)) {
       return res.status(400).json({ message: "Invalid date" });
     }
-    // Check if the time slot is available
-    const existingBooking = await VenueBookingModel.findOne({
-      venue: venue_id,
-      booking_date: bookingDate,
-      booking_time_slot: timeSlot,
-    });
-    if (existingBooking) {
-      return res.status(409).json({ message: "Slot already booked" });
+
+    // timeslot will be array os strings in format "HH:MM - HH:MM"
+    // Check if the time slot is valid
+    if (!timeSlot || !timeSlot.includes("-")) {
+      return res.status(400).json({ message: "Invalid time slot" });
     }
-
+    // Check if the time slot is available
+    for (let i = 0; i < timeSlot.length; i++) {
+      const existingBooking = await VenueBookingModel.findOne({
+        venue: venue_id,
+        booking_date: bookingDate,
+        booking_time_slot: timeSlot[i],
+      });
+      if (existingBooking) {
+        return res
+          .status(409)
+          .json({ message: "Slot already booked", timeSlot: timeSlot[i] });
+      }
+    }
     // Create a new booking
-    const newBooking = new VenueBookingModel({
-      venue: venue_id,
-      user: req.user._id,
-      booking_date: bookingDate,
-      booking_time_slot: timeSlot,
-    });
-    await newBooking.save();
-
-    res
-      .status(201)
-      .json({ message: "Slot booked successfully", booking: newBooking });
+    for (let i = 0; i < timeSlot.length; i++) {
+      const newBooking = new VenueBookingModel({
+        venue: venue_id,
+        user: req.user._id,
+        booking_date: bookingDate,
+        booking_time_slot: timeSlot[i],
+      });
+      await newBooking.save();
+    }
+    return res.status(201).json({ message: "Booking successful" });
   } catch (error) {
     console.error("Error booking slot:", error);
     res.status(500).json({ message: "Internal server error" });
