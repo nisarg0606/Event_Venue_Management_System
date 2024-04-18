@@ -99,8 +99,9 @@ exports.createVenue = async (req, res) => {
     console.log("timings: ", timings);
 
     // Parse timings array from string to object
-    const updatedTimings = timings.map((timingStr) => {
-      const timingObj = JSON.parse(timingStr);
+    // Parse timings array from string to object
+    const updatedTimings = timings.map((timingObj) => {
+      console.log("timingObj: ", timingObj);
       return {
         day: timingObj.day,
         slots: timingObj.slots.reduce((acc, slot) => {

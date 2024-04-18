@@ -11,7 +11,11 @@ const { date } = require("joi");
 exports.createAVenueBooking = async (req, res) => {
   try {
     const { venue_id } = req.params;
-    const { date, timeSlot } = req.body;
+    let { date, timeSlot } = req.body;
+
+    console.log(req.body);
+
+    // if type slot is not an array, make it an array
 
     // Check if the venue exists
     const venue = await venueModel.findById(venue_id);
