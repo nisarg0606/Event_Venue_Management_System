@@ -16,7 +16,9 @@ exports.createAVenueBooking = async (req, res) => {
     console.log(req.body);
 
     // if type slot is not an array, make it an array
-
+    if (!Array.isArray(timeSlot)) {
+      timeSlot = [timeSlot];
+    }
     // Check if the venue exists
     const venue = await venueModel.findById(venue_id);
     if (!venue) {
@@ -31,8 +33,12 @@ exports.createAVenueBooking = async (req, res) => {
 
     // timeslot will be array os strings in format "HH:MM - HH:MM"
     // Check if the time slot is valid
-    if (!timeSlot || !timeSlot.includes("-")) {
-      return res.status(400).json({ message: "Invalid time slot" });
+    for (let i = 0; i < timeSlot.length; i++) {
+      const [from, to] = timeSlot[i].split(" - ");
+      if (!from || !to) {
+        return res.status(400).json({ message: "Invalid time slot" });
+      }
+      timeSlot[i] = { from, to };
     }
     // Check if the time slot is available
     for (let i = 0; i < timeSlot.length; i++) {
