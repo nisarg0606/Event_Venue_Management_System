@@ -1,3 +1,4 @@
+const { from } = require("env-var");
 const moongose = require("mongoose");
 
 const venueBookingSchema = new moongose.Schema({
@@ -15,10 +16,19 @@ const venueBookingSchema = new moongose.Schema({
     type: Date,
     required: true,
   },
-  booking_time_slot: {
-    type: array,
-    required: true,
-  },
+
+  booking_time_slot: [
+    {
+      from: {
+        type: String,
+        required: true,
+      },
+      to: {
+        type: String,
+        required: true,
+      },
+    },
+  ],
 });
 
 module.exports = moongose.model("VenueBooking", venueBookingSchema);
