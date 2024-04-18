@@ -13,8 +13,6 @@ exports.createAVenueBooking = async (req, res) => {
     const { venue_id } = req.params;
     let { date, timeSlot } = req.body;
 
-    console.log(req.body);
-
     // if type slot is not an array, make it an array
     if (!Array.isArray(timeSlot)) {
       timeSlot = [timeSlot];
@@ -301,14 +299,36 @@ exports.getAvailableSlots = async (req, res) => {
     if (bookings.length === 0) {
       return res.status(200).json({ availableSlots: daySlots.slots });
     } else {
-      // Get all booked slots
-      const bookedSlots = bookings.map((booking) => booking.booking_time_slot);
+      // console.log("Day slots:", daySlots.slots);
+      // console.log("Bookings:", bookings);
+      // Get all booked slots array
+      // const bookedSlots = bookings.map((booking) => {
+      //   console.log("bOOKING IN MAP:", booking);
+      //   booking.booking_time_slot.map((slot) => {
+      //     console.log("SLOT IN MAP:", slot);
+      //     return `${slot.from} - ${slot.to}`;
+      //   });
+      // });
+
+      const bookedSlots = bookings.reduce((acc, booking) => {
+        booking.booking_time_slot.forEach((slot) => {
+          acc.push(`${slot.from} - ${slot.to}`);
+        });
+        return acc;
+      }, []);
+
+      // console.log("Booked slots:", bookedSlots);
 
       // Filter out the booked slots for the specified date
+      // const availableSlots = daySlots.slots.filter((slot) => {
+      //   // Extract the time slot string from the slot object
+      //   const slotString = `${slot.from} - ${slot.to}`;
+      //   // Check if the extracted slot string is not in bookedSlots
+      //   return !bookedSlots.includes(slotString);
+      // });
+
       const availableSlots = daySlots.slots.filter((slot) => {
-        // Extract the time slot string from the slot object
         const slotString = `${slot.from} - ${slot.to}`;
-        // Check if the extracted slot string is not in bookedSlots
         return !bookedSlots.includes(slotString);
       });
 
