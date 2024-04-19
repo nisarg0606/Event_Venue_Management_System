@@ -613,10 +613,8 @@ exports.CustomerDashboard = async (req, res) => {
       }
     });
     res.status(200).json({
-      pastActivities,
-      upcomingActivities,
-      pastVenueBookings,
-      upcomingVenueBookings,
+      venueBookings: { pastVenueBookings, upcomingVenueBookings },
+      activityBookings: { pastActivities, upcomingActivities },
     });
   } catch (error) {
     console.log(error);
