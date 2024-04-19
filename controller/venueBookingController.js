@@ -90,6 +90,73 @@ exports.findAllVenueBookings = async (req, res) => {
   }
 };
 
+exports.findVenueBookingByOwner = async (req, res) => {
+  try {
+    let past = [],
+      upcoming = [];
+    // populate and filter bookings of the venue owner. The venue owner is the user who is logged in and the field is known as venueOwner in the venue model
+    // venueOwner is in venue model and not in venueBooking model but venueBooking model contains venue field which is the id of the venue
+    let allVenueBookings = await VenueBookingModel.find({
+      venue: { venueOwner: req.user._id },
+    });
+    allVenueBookings.forEach((booking) => {
+      if (booking.booking_date < new Date()) {
+        past.push(booking);
+      }
+      if (booking.booking_date > new Date()) {
+        upcoming.push(booking);
+      }
+    });
+    return {
+      past,
+      upcoming,
+    };
+  } catch (err) {
+    res.status(500).send({
+      message: err.message || "Some error occurred while retrieving bookings.",
+    });
+  }
+};
+
+exports.findMyUpcomingVenueBookings = async (req, res) => {
+  try {
+    let upcoming = [];
+    // i need just venue name, booking date and booking time slot
+    let allVenueBookings = await VenueBookingModel.find({
+      user: req.user._id,
+    })
+      .populate("venue", "name")
+      .select("booking_date");
+    allVenueBookings.forEach((booking) => {
+      if (booking.booking_date > new Date()) {
+        upcoming.push(booking);
+      }
+    });
+    // for date I need to format it to yyyy-mm-dd
+    upcoming = upcoming.map((booking) => {
+      return {
+        venue: booking.venue.name,
+        booking_date: format(booking.booking_date, "yyyy-MM-dd"),
+      };
+    });
+    // create set of unique upcoming bookings
+    upcoming = upcoming.filter(
+      (booking, index, self) =>
+        index ===
+        self.findIndex(
+          (t) =>
+            t.venue.name === booking.venue.name &&
+            t.booking_date === booking.booking_date
+        )
+    );
+    res.status(200).send({ upcoming });
+  } catch (err) {
+    res.status(500).send({
+      message: err.message || "Some error occurred while retrieving bookings.",
+    });
+  }
+};
+
 // Retrieve all bookings for a specific venue
 exports.findByVenue = async (req, res) => {
   try {

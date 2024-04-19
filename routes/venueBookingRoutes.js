@@ -9,6 +9,12 @@ router.post("/:venue_id", auth, venueBookingController.createAVenueBooking);
 router.get("/venue/:venue_id", auth, venueBookingController.findByVenue);
 // Retrieve all bookings
 router.get("/", auth, venueBookingController.findAllVenueBookings);
+//Retrieve all upcoming bookings
+router.get(
+  "/upcoming",
+  auth,
+  venueBookingController.findMyUpcomingVenueBookings
+);
 // Retrieve a single booking with booking_id
 router.get("/:booking_id", auth, venueBookingController.findOne);
 // Retrieve all bookings of a user
