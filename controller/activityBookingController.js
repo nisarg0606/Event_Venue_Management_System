@@ -254,3 +254,37 @@ exports.deleteActivityBooking = async (req, res) => {
     });
   }
 };
+
+exports.getActivityBookingParticipantsCountOfAllActivitiesOfHost = async (
+  req,
+  res
+) => {
+  try {
+    const userId = req.user._id;
+    //show the length of the participants array of all activities of the host
+    // get just activity name and the number of participants in that activity
+    let activities = await activity
+      .find({ host: userId })
+      .select("name participants");
+    let data = [];
+    activities.forEach((activity) => {
+      data.push({
+        activity_name: activity.name,
+        participants_count: activity.participants.length,
+      });
+    });
+    if (req.flag) {
+      return data;
+    } else {
+      res.status(200).json({
+        success: true,
+        data: data,
+      });
+    }
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

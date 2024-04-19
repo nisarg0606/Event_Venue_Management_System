@@ -96,9 +96,12 @@ exports.findVenueBookingByOwner = async (req, res) => {
       upcoming = [];
     // populate and filter bookings of the venue owner. The venue owner is the user who is logged in and the field is known as venueOwner in the venue model
     // venueOwner is in venue model and not in venueBooking model but venueBooking model contains venue field which is the id of the venue
+    const ownedVenue = await venueModel.find({ venueOwner: req.user._id });
     let allVenueBookings = await VenueBookingModel.find({
-      venue: { venueOwner: req.user._id },
-    });
+      venue: { $in: ownedVenue.map((venue) => venue._id) },
+    })
+      .populate("venue", "name")
+      .populate("user", "firstName lastName username email");
     allVenueBookings.forEach((booking) => {
       if (booking.booking_date < new Date()) {
         past.push(booking);
@@ -107,10 +110,11 @@ exports.findVenueBookingByOwner = async (req, res) => {
         upcoming.push(booking);
       }
     });
-    return {
-      past,
-      upcoming,
-    };
+    if (req.flag) {
+      return { past: past, upcoming: upcoming };
+    } else {
+      res.status(200).send({ past, upcoming });
+    }
   } catch (err) {
     res.status(500).send({
       message: err.message || "Some error occurred while retrieving bookings.",

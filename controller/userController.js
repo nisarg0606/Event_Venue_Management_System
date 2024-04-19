@@ -11,6 +11,12 @@ const sendEmail = require("../utils/email");
 const ejs = require("ejs");
 const express = require("express");
 const blacklistTokenSchema = require("../models/blackListToken");
+const venueSchema = require("../models/venue");
+const activitySchema = require("../models/activities");
+const venueBookingSchema = require("../models/venueBooking");
+const activityBookingSchema = require("../models/activityBooking");
+const venueBookingController = require("../controller/venueBookingController");
+const activityBookingController = require("../controller/activityBookingController");
 
 const app = express();
 
@@ -558,7 +564,9 @@ exports.CustomerDashboard = async (req, res) => {
     const user = req.user;
 
     // get all the activities booked by the user
-    const activities = await activitySchema.find({ user: user._id });
+    const activities = await activityBookingSchema
+      .find({ user: user._id })
+      .populate("activity", "name date start_time end_time participants_limit");
     const pastActivities = [];
     const upcomingActivities = [];
     const currentDate = new Date();
@@ -569,23 +577,53 @@ exports.CustomerDashboard = async (req, res) => {
         upcomingActivities.push(activity);
       }
     });
+    // if the activity id is same for multiple bookings then it will be counted as one and the participants will be added
+    // to the participants array of the activity
+    pastActivities.forEach((activity) => {
+      const index = pastActivities.findIndex(
+        (act) => act.activity.toString() === activity.activity.toString()
+      );
+      if (index !== -1) {
+        pastActivities[index].participants =
+          pastActivities[index].participants || [];
+        pastActivities[index].participants.push(activity.user);
+      }
+    });
+    upcomingActivities.forEach((activity) => {
+      const index = upcomingActivities.findIndex(
+        (act) => act.activity.toString() === activity.activity.toString()
+      );
+      if (index !== -1) {
+        upcomingActivities[index].participants =
+          upcomingActivities[index].participants || [];
+        upcomingActivities[index].participants.push(activity.user);
+      }
+    });
     res.status(200).json({ pastActivities, upcomingActivities });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ message: error.message });
   }
 };
 
 exports.HostDashboard = async (req, res) => {
   try {
-    const user = req.user;
-    // get all the venues and activities created by the user
-    // show other people's bookings on the venue
-    // show the bookings on the activities
-    const venues = await venueSchema.find({ user: user._id });
-    const activities = await activitySchema
-      .find({ user: user._id })
-      .populate("participants");
-    res.status(200).json({ venues, activities });
+    // send flag in req so that api can know that it need not to send the repose and it will be handled by the controller
+    req.flag = true;
+    const venueBookingPromise =
+      await venueBookingController.findVenueBookingByOwner(req, res);
+    const activityBookingPromise =
+      await activityBookingController.getActivityBookingParticipantsCountOfAllActivitiesOfHost(
+        req,
+        res
+      );
+
+    const [venueBookings, activityBookings] = await Promise.all([
+      venueBookingPromise,
+      activityBookingPromise,
+    ]);
+
+    res.status(200).json({ venueBookings, activityBookings });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -595,10 +633,10 @@ exports.UserDashboard = async (req, res) => {
   try {
     const user = req.user;
     if (user.role === "customer") {
-      return CustomerDashboard(req, res);
+      return this.CustomerDashboard(req, res);
     }
     if (user.role === "venueOwner/eventPlanner") {
-      return HostDashboard(req, res);
+      return this.HostDashboard(req, res);
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
