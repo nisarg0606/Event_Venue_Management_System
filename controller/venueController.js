@@ -372,6 +372,7 @@ exports.updateVenue = async (req, res) => {
     } else {
       venue.image = venue.image;
     }
+    await venue.save();
     res.status(200).json({ message: "Venue updated successfully", venue });
   } catch (error) {
     res.status(404).json({ message: error.message });
