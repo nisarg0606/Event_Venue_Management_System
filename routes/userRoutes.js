@@ -35,7 +35,8 @@ router.get(
 router.put("/interests", auth, userController.updateInterests);
 
 // user dashboard routes
-router.get("/dashboard", auth, userController.UserDashboard);
+router.get("/customer/dashboard", auth, userController.CustomerDashboard);
+router.get("/host/dashboard", auth, userController.HostDashboard);
 router.get("/:id", auth, userController.getUserById);
 
 module.exports = router;
