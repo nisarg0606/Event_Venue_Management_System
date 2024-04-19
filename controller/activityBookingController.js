@@ -263,22 +263,35 @@ exports.getActivityBookingParticipantsCountOfAllActivitiesOfHost = async (
     const userId = req.user._id;
     //show the length of the participants array of all activities of the host
     // get just activity name and the number of participants in that activity
+    let pastActivities = [];
+    let upcomingActivities = [];
     let activities = await activity
       .find({ host: userId })
       .select("name participants");
-    let data = [];
     activities.forEach((activity) => {
-      data.push({
-        activity_name: activity.name,
-        participants_count: activity.participants.length,
-      });
+      let participantsCount = activity.participants.length;
+      let activityName = activity.name;
+      let activityDetails = {
+        activityName,
+        participantsCount,
+      };
+      if (activity.date < new Date()) {
+        pastActivities.push(activityDetails);
+      } else {
+        upcomingActivities.push(activityDetails);
+      }
     });
+
     if (req.flag) {
-      return data;
+      return {
+        pastActivities,
+        upcomingActivities,
+      };
     } else {
       res.status(200).json({
         success: true,
-        data: data,
+        pastActivities,
+        upcomingActivities,
       });
     }
   } catch (error) {
