@@ -126,7 +126,8 @@ exports.findMyUpcomingVenueBookings = async (req, res) => {
       user: req.user._id,
     })
       .populate("venue", "name")
-      .select("booking_date");
+      .select("booking_date")
+      .sort({ booking_date: 1 });
     allVenueBookings.forEach((booking) => {
       if (booking.booking_date > new Date()) {
         upcoming.push(booking);
@@ -135,7 +136,8 @@ exports.findMyUpcomingVenueBookings = async (req, res) => {
     // for date I need to format it to yyyy-mm-dd
     upcoming = upcoming.map((booking) => {
       return {
-        venue: booking.venue.name,
+        venue: booking.venue._id,
+        venue_name: booking.venue.name,
         booking_date: format(booking.booking_date, "yyyy-MM-dd"),
       };
     });
@@ -145,6 +147,7 @@ exports.findMyUpcomingVenueBookings = async (req, res) => {
         index ===
         self.findIndex(
           (t) =>
+            t.venue._id === booking.venue._id &&
             t.venue.name === booking.venue.name &&
             t.booking_date === booking.booking_date
         )
