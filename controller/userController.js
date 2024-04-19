@@ -567,6 +567,12 @@ exports.CustomerDashboard = async (req, res) => {
     const activities = await activityBookingSchema
       .find({ user: user._id })
       .populate("activity", "name date start_time end_time participants_limit");
+    const venues = await venueBookingSchema
+      .find({ user: user._id })
+      .populate("venue", "name")
+      .select("booking_date booking_time_slot");
+    const pastVenueBookings = [];
+    const upcomingVenueBookings = [];
     const pastActivities = [];
     const upcomingActivities = [];
     const currentDate = new Date();
@@ -599,7 +605,19 @@ exports.CustomerDashboard = async (req, res) => {
         upcomingActivities[index].participants.push(activity.user);
       }
     });
-    res.status(200).json({ pastActivities, upcomingActivities });
+    venues.forEach((venue) => {
+      if (venue.booking_date < currentDate) {
+        pastVenueBookings.push(venue);
+      } else {
+        upcomingVenueBookings.push(venue);
+      }
+    });
+    res.status(200).json({
+      pastActivities,
+      upcomingActivities,
+      pastVenueBookings,
+      upcomingVenueBookings,
+    });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: error.message });
