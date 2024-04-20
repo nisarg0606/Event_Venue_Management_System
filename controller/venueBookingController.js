@@ -7,6 +7,7 @@ const { enUS } = require("date-fns/locale");
 const venue = require("../models/venue.js");
 const venueBooking = require("../models/venueBooking.js");
 const { date } = require("joi");
+const sendEmail = require("../utils/email.js");
 
 exports.createAVenueBooking = async (req, res) => {
   try {
