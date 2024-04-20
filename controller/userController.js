@@ -17,6 +17,8 @@ const venueBookingSchema = require("../models/venueBooking");
 const activityBookingSchema = require("../models/activityBooking");
 const venueBookingController = require("../controller/venueBookingController");
 const activityBookingController = require("../controller/activityBookingController");
+const user = require("../models/user");
+var fs = require("fs");
 
 const app = express();
 
@@ -321,7 +323,7 @@ exports.forgetPassword = async (req, res) => {
     }).save();
     console.log("TOKEN: ", token.token);
     const userId = user._id;
-    const message = `${process.env.BASE_URL}/users/resetpassword/${userId}/${token.token}`;
+    const message = `${process.env.BASE_URL}/users/verifyForgotPasswordLink/${userId}/${token.token}`;
     let userInfo = {
       username: user.username,
       email: user.email,
@@ -348,31 +350,59 @@ exports.forgetPassword = async (req, res) => {
   }
 };
 
-exports.verifyTokenAndResetPassword = async (req, res) => {
+exports.verifyTokenAndResetPasswordLink = async (req, res) => {
   try {
     const { userId, token } = req.params;
-    const { newPassword, confirmPassword } = req.body;
+    const userData = await user.findOne({ _id: userId });
+    // Find the token in the database
+    const tokenData = await Token.findOne({ userId, token });
+
+    let message;
+    // If token is not found or is expired, send an error message
+    if (!tokenData) {
+      message = "Token not found or expired";
+      var template = fs.readFileSync(
+        __dirname + "/../views/forget_password.ejs",
+        "utf-8"
+      );
+      var html = ejs.render(template, {
+        email: userData.email,
+        token: token,
+        message: message,
+      });
+      res.end(html);
+    }
+
+    // Delete the token from the database
+    await Token.deleteOne({ userId, token });
+    var template = fs.readFileSync(
+      __dirname + "/../views/forget_password.ejs",
+      "utf-8"
+    );
+    var html = ejs.render(template, {
+      email: userData.email,
+      token: token,
+      message: message,
+    });
+    res.end(html);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.resetForgotPasswordAfterVerification = async (req, res) => {
+  try {
+    const { email, newPassword, confirmPassword } = req.body;
 
     // Check if new password and confirm password match
     if (newPassword !== confirmPassword) {
       return res.status(400).json({ message: "Passwords do not match" });
     }
 
-    // Find the token in the database
-    const tokenData = await Token.findOne({ userId, token });
-
-    // If token is not found or is expired, send an error message
-    if (!tokenData) {
-      return res.status(400).json({ message: "Invalid or expired token" });
-    }
-
     // Find the user by id
-    const user = await userSchema.findById(userId);
+    const user = await userSchema.findOne({ email });
 
-    // If user is not found, send an error message
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
     //hash the new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
@@ -380,9 +410,6 @@ exports.verifyTokenAndResetPassword = async (req, res) => {
     // Update the user's password and save the user
     user.password = hashedPassword;
     await user.save();
-
-    // Delete the token from the database
-    await Token.deleteOne({ userId, token });
 
     res.status(200).json({ message: "Password has been reset" });
   } catch (error) {
