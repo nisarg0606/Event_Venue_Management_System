@@ -474,6 +474,50 @@ exports.searchVenues = async (req, res) => {
       venue.imageURL = url;
     }
 
+    res.status(200).json({ venues });
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
+exports.searchMyVenues = async (req, res) => {
+  try {
+    const { search } = req.query;
+    let venues;
+
+    if (search) {
+      // Construct a regex pattern to search across all fields
+      const regex = new RegExp(search, "i");
+      venues = await venueSchema.find({
+        $or: [
+          { name: regex },
+          { description: regex },
+          { location: regex },
+          { type: regex },
+        ],
+        venueOwner: req.user._id,
+      });
+    } else {
+      // If no search query is provided, return all venues
+      venues = await venueSchema.find({ venueOwner: req.user._id });
+    }
+
+    // Populate image URLs and cache them if necessary
+    for (let venue of venues) {
+      venue = venue.toObject();
+      let url = await redis.get(`venue:${venue._id}:image:0`);
+      if (!url) {
+        url = await getSignedURLOfImage(venue.image);
+        await redis.set(
+          `venue:${venue._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+      }
+      venue.imageURL = url;
+    }
+
     if (venues.length === 0) {
       return res.status(404).json({ message: "Venues not found" });
     }

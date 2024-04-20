@@ -21,8 +21,14 @@ router.get("/search", auth, userController.getUserByEmailOrUsername);
 // password routes
 router.post("/forgotpassword", userController.forgetPassword);
 router.post("/resetpassword", auth, userController.resetPassword);
-router.post("/resetForgotPassword", userController.verifyTokenAndResetPassword);
-
+router.get(
+  "/verifyForgotPasswordLink/:userId/:token",
+  userController.verifyTokenAndResetPasswordLink
+);
+router.post(
+  "/changePassword",
+  userController.resetForgotPasswordAfterVerification
+);
 // user profile routes
 router.get("/", auth, userController.getAllUsers);
 router.get("/profile", auth, userController.getUserProfile);
