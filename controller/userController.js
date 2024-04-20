@@ -577,7 +577,7 @@ exports.CustomerDashboard = async (req, res) => {
     const upcomingActivities = [];
     const currentDate = new Date();
     activities.forEach((activity) => {
-      if (activity.date < currentDate) {
+      if (activity.activity.date < currentDate) {
         pastActivities.push(activity);
       } else {
         upcomingActivities.push(activity);
