@@ -441,7 +441,7 @@ exports.searchVenues = async (req, res) => {
   try {
     const { search } = req.query;
     let venues;
-
+    let venues_json = {};
     if (search) {
       // Construct a regex pattern to search across all fields
       const regex = new RegExp(search, "i");
@@ -472,9 +472,10 @@ exports.searchVenues = async (req, res) => {
         );
       }
       venue.imageURL = url;
+      venues_json[venue._id] = venue;
     }
 
-    res.status(200).json({ venues });
+    res.status(200).json({ venues: venues_json });
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -484,7 +485,7 @@ exports.searchMyVenues = async (req, res) => {
   try {
     const { search } = req.query;
     let venues;
-
+    let venues_json = {};
     if (search) {
       // Construct a regex pattern to search across all fields
       const regex = new RegExp(search, "i");
@@ -502,6 +503,10 @@ exports.searchMyVenues = async (req, res) => {
       venues = await venueSchema.find({ venueOwner: req.user._id });
     }
 
+    if (venues.length === 0) {
+      return res.status(404).json({ message: "Venues not found" });
+    }
+
     // Populate image URLs and cache them if necessary
     for (let venue of venues) {
       venue = venue.toObject();
@@ -516,13 +521,10 @@ exports.searchMyVenues = async (req, res) => {
         );
       }
       venue.imageURL = url;
+      venues_json[venue._id] = venue;
     }
 
-    if (venues.length === 0) {
-      return res.status(404).json({ message: "Venues not found" });
-    }
-
-    res.status(200).json({ venues });
+    res.status(200).json({ venues: venues_json });
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
