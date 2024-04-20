@@ -372,28 +372,26 @@ exports.rejectActivity = async (req, res) => {
 
 exports.searchActivities = async (req, res) => {
   try {
-    const { name, type_of_activity, date, description, price } = req.query;
-    const searchConditions = [];
-    if (name) {
-      searchConditions.push({ name: { $regex: name, $options: "i" } });
-    }
-    if (type_of_activity) {
-      searchConditions.push({
-        type_of_activity: { $regex: type_of_activity, $options: "i" },
+    const { search } = req.query;
+    let activities;
+
+    if (search) {
+      // Construct a regex pattern to search across all fields
+      const regex = new RegExp(search, "i");
+      activities = await activitySchema.find({
+        $or: [
+          { name: regex },
+          { type_of_activity: regex },
+          { date: regex },
+          { description: regex },
+          { price: regex },
+        ],
       });
+    } else {
+      // If no search query is provided, return all activities
+      activities = await activitySchema.find();
     }
-    if (date) {
-      searchConditions.push({ date: { $regex: date, $options: "i" } });
-    }
-    if (description) {
-      searchConditions.push({
-        description: { $regex: description, $options: "i" },
-      });
-    }
-    if (price) {
-      searchConditions.push({ price: { $regex: price, $options: "i" } });
-    }
-    let activities = await activitySchema.find({ $and: searchConditions });
+
     // get images URL for each activity
     for (let i = 0; i < activities.length; i++) {
       activities[i] = activities[i].toObject();

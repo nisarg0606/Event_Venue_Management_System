@@ -267,7 +267,7 @@ exports.getActivityBookingParticipantsCountOfAllActivitiesOfHost = async (
     let upcomingActivities = [];
     let activities = await activity
       .find({ host: userId })
-      .select("name participants");
+      .select("name participants date");
     activities.forEach((activity) => {
       let participantsCount = activity.participants.length;
       let activityName = activity.name;

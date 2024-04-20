@@ -439,35 +439,30 @@ exports.getMyVenues = async (req, res) => {
 
 exports.searchVenues = async (req, res) => {
   try {
-    const { name, description, location, type } = req.query;
-    const searchConditions = [];
+    const { search } = req.query;
+    let venues;
 
-    if (name) searchConditions.push({ name: new RegExp(name, "i") });
-    if (description)
-      searchConditions.push({ description: new RegExp(description, "i") });
-    if (location)
-      searchConditions.push({ location: new RegExp(location, "i") });
-    if (type) searchConditions.push({ type: new RegExp(type, "i") });
-
-    let venues = [];
-
-    if (searchConditions.length > 0) {
-      // Construct the final query by combining all search conditions with $or
-      venues = await venueSchema.find({ $or: searchConditions });
+    if (search) {
+      // Construct a regex pattern to search across all fields
+      const regex = new RegExp(search, "i");
+      venues = await venueSchema.find({
+        $or: [
+          { name: regex },
+          { description: regex },
+          { location: regex },
+          { type: regex },
+        ],
+      });
+    } else {
+      // If no search query is provided, return all venues
+      venues = await venueSchema.find();
     }
 
-    if (venues.length === 0) {
-      return res.status(404).json({ message: "Venues not found" });
-    }
-
-    let venues_json = {};
+    // Populate image URLs and cache them if necessary
     for (let venue of venues) {
       venue = venue.toObject();
       let url = await redis.get(`venue:${venue._id}:image:0`);
-      if (url) {
-        venue.imageURL = url;
-        venues_json[venue._id] = venue;
-      } else {
+      if (!url) {
         url = await getSignedURLOfImage(venue.image);
         await redis.set(
           `venue:${venue._id}:image:0`,
@@ -475,12 +470,15 @@ exports.searchVenues = async (req, res) => {
           "EX",
           60 * 60 * 24 * 7
         );
-        venue.imageURL = url;
-        venues_json[venue._id] = venue;
       }
+      venue.imageURL = url;
     }
 
-    res.status(200).json({ venues: venues_json });
+    if (venues.length === 0) {
+      return res.status(404).json({ message: "Venues not found" });
+    }
+
+    res.status(200).json({ venues });
   } catch (error) {
     res.status(404).json({ message: error.message });
   }

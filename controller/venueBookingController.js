@@ -61,6 +61,41 @@ exports.createAVenueBooking = async (req, res) => {
       });
       await newBooking.save();
     }
+    let mailOptions = {
+      email: req.user.email,
+      subject: "Booking Confirmation",
+      text: `You have successfully booked a slot at ${venue.name} on ${format(
+        bookingDate,
+        "yyyy-MM-dd"
+      )}`,
+      html: `<p>You have successfully booked a slot at ${
+        venue.name
+      } on ${format(bookingDate, "yyyy-MM-dd")}</p>`,
+    };
+    await sendEmail(
+      mailOptions.email,
+      mailOptions.subject,
+      mailOptions.text,
+      mailOptions.html
+    );
+    mailOptions = {
+      email: venue.venueOwner.email,
+      subject: "New Booking",
+      text: `You have a new booking at your venue ${venue.name} on ${format(
+        bookingDate,
+        "yyyy-MM-dd"
+      )}`,
+      html: `<p>You have a new booking at your venue ${venue.name} on ${format(
+        bookingDate,
+        "yyyy-MM-dd"
+      )}</p>`,
+    };
+    await sendEmail(
+      mailOptions.email,
+      mailOptions.subject,
+      mailOptions.text,
+      mailOptions.html
+    );
     return res.status(201).json({ message: "Booking successful" });
   } catch (error) {
     console.error("Error booking slot:", error);
