@@ -374,47 +374,66 @@ exports.searchActivities = async (req, res) => {
   try {
     const { search } = req.query;
     let activities;
+    let activitiesList = [];
 
     if (search) {
-      // Construct a regex pattern to search across all fields
       const regex = new RegExp(search, "i");
       activities = await activitySchema.find({
         $or: [
           { name: regex },
-          { type_of_activity: regex },
-          { date: regex },
           { description: regex },
-          { price: regex },
+          { type_of_activity: regex },
+          { location: regex },
         ],
       });
     } else {
       // If no search query is provided, return all activities
       activities = await activitySchema.find();
-    }
-
-    // get images URL for each activity
-    for (let i = 0; i < activities.length; i++) {
-      activities[i] = activities[i].toObject();
-      activities[i].imagesURL = [];
-      for (let j = 0; j < activities[i].images.length; j++) {
-        let url = await redis.get(`activity:${activities[i]._id}:image:${j}`);
+      for (let activity of activities) {
+        activity = activity.toObject();
+        let url = await redis.get(`activity:${activity._id}:image:0`);
         if (!url) {
-          url = await getSignedURLOfImage(activities[i].images[j]);
+          url = await getSignedURLOfImage(activity.image);
           redis.set(
-            `activity:${activities[i]._id}:image:${j}`,
+            `activity:${activity._id}:image:0`,
             url,
             "EX",
             60 * 60 * 24 * 7
           );
         }
-        activities[i].imagesURL.push(url);
+        activity.imageURL = url;
+        // Check if the date of the activity has passed
+        if (new Date(activity.date) < new Date()) {
+          activity.active = false;
+        }
+        activitiesList.push(activity);
       }
-      // Check if the date of the activity has passed
-      if (new Date(activities[i].date) < new Date()) {
-        activities[i].active = false;
-      }
+      return res.status(200).json(activitiesList);
     }
-    res.status(200).json(activities);
+
+    if (!activities) {
+      return res.status(404).json({ message: "No activity found" });
+    }
+    for (let activity of activities) {
+      activity = activity.toObject();
+      let url = await redis.get(`activity:${activity._id}:image:0`);
+      if (!url) {
+        url = await getSignedURLOfImage(activity.image);
+        redis.set(
+          `activity:${activity._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+      }
+      activity.imageURL = url;
+      // Check if the date of the activity has passed
+      if (new Date(activity.date) < new Date()) {
+        activity.active = false;
+      }
+      activitiesList.push(activity);
+    }
+    res.status(200).json(activitiesList);
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
