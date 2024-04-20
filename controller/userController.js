@@ -529,15 +529,7 @@ exports.getUser2FAStatus = async (req, res) => {
 
 exports.getPeopleWithSimilarInterests = async (req, res) => {
   try {
-    const user = req.user;
-    const { interestedIn } = user;
-    if (!interestedIn) {
-      return getPeople(req, res);
-    }
-    let users = await userSchema.find({
-      interestedIn: { $in: interestedIn },
-      _id: { $ne: user._id },
-    });
+    let users = await userSchema.find();
     users = users.map((user) => {
       return {
         id: user._id,
@@ -548,6 +540,43 @@ exports.getPeopleWithSimilarInterests = async (req, res) => {
     });
     res.status(200).json({ users });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.searchPeopleWithSimilarInterests = async (req, res) => {
+  try {
+    const { search } = req.query;
+    let users;
+    console.log(search);
+    if (search) {
+      const regex = new RegExp(search, "i");
+      users = await userSchema.find({
+        $or: [
+          { username: regex },
+          { email: regex },
+          { interestedIn: regex },
+          { firstName: regex },
+          { lastName: regex },
+        ],
+      });
+      console.log(users + "users");
+    } else {
+      users = await userSchema.find();
+    }
+    users = users.map((user) => {
+      return {
+        id: user._id,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        interestedIn: user.interestedIn,
+      };
+    });
+    res.status(200).json({ users });
+  } catch (error) {
+    console.log(error);
     res.status(500).json({ message: error.message });
   }
 };

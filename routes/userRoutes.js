@@ -16,7 +16,9 @@ router.post("/2faStatus", userController.getUser2FAStatus);
 router.get("/disable2fa", auth, userController.disableTwoFactorAuth);
 
 //get user by username or email
-router.get("/search", auth, userController.getUserByEmailOrUsername);
+//router.get("/search", auth, userController.getUserByEmailOrUsername);
+
+router.get("/search", auth, userController.searchPeopleWithSimilarInterests);
 
 // password routes
 router.post("/forgotpassword", userController.forgetPassword);
