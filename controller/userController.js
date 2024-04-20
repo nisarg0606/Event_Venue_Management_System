@@ -269,9 +269,8 @@ exports.disableTwoFactorAuth = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   try {
-    const { email, oldpassword, newpassword, confirmnewpassword, code } =
-      req.body;
-    const user = await userSchema.findOne({ email: email });
+    const { oldPassword, newPassword, confirmPassword, code } = req.body;
+    const user = await userSchema.findOne({ email: req.user.email });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -289,19 +288,20 @@ exports.resetPassword = async (req, res) => {
         return res.status(400).json({ message: "Invalid code" });
       }
     }
-    const isPasswordCorrect = await bcrypt.compare(oldpassword, user.password);
+    const isPasswordCorrect = await bcrypt.compare(oldPassword, user.password);
     if (!isPasswordCorrect) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
-    if (newpassword !== confirmnewpassword) {
+    if (newPassword !== confirmPassword) {
       return res.status(400).json({ message: "Passwords do not match" });
     }
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newpassword, salt);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
     user.password = hashedPassword;
     await user.save();
     res.status(200).json({ message: "Password reset successfully" });
   } catch (error) {
+    console.log(error);
     res.status(409).json({ message: error.message });
   }
 };
