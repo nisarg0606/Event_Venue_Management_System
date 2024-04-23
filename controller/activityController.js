@@ -157,6 +157,12 @@ exports.getActivities = async (req, res) => {
       if (new Date(activities[i].date) < new Date()) {
         activities[i].active = false;
       }
+      //set the date format to be in the format of "MM/DD/YYYY"
+      let date = new Date(activities[i].date);
+      let month = date.getMonth() + 1;
+      let day = date.getDate();
+      let year = date.getFullYear();
+      activities[i].date = month + "/" + day + "/" + year;
     }
     res.status(200).json(activities);
   } catch (error) {
@@ -191,6 +197,12 @@ exports.getActivity = async (req, res) => {
     if (new Date(activity.date) < new Date()) {
       activity.active = false;
     }
+    //set the date format to be in the format of "MM/DD/YYYY"
+    let date = new Date(activity.date);
+    let month = date.getMonth() + 1;
+    let day = date.getDate();
+    let year = date.getFullYear();
+    activity.date = month + "/" + day + "/" + year;
     res.status(200).json(activity);
   } catch (error) {
     res.status(404).json({ message: error.message });
@@ -224,6 +236,12 @@ exports.getMyActivities = async (req, res) => {
       if (new Date(activities[i].date) < new Date()) {
         activities[i].active = false;
       }
+      //set the date format to be in the format of "MM/DD/YYYY"
+      let date = new Date(activities[i].date);
+      let month = date.getMonth() + 1;
+      let day = date.getDate();
+      let year = date.getFullYear();
+      activities[i].date = month + "/" + day + "/" + year;
     }
     res.status(200).json(activities);
   } catch (error) {
