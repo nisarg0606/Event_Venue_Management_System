@@ -437,9 +437,18 @@ exports.getAvailableSlots = async (req, res) => {
       //   return !bookedSlots.includes(slotString);
       // });
 
-      const availableSlots = daySlots.slots.filter((slot) => {
+      let availableSlots = daySlots.slots.filter((slot) => {
         const slotString = `${slot.from} - ${slot.to}`;
         return !bookedSlots.includes(slotString);
+      });
+
+      // in available slots add price of the slot
+      availableSlots = availableSlots.map((slot) => {
+        return {
+          from: slot.from,
+          to: slot.to,
+          price: venue.pricePerHour,
+        };
       });
 
       return res.status(200).json({ availableSlots });
