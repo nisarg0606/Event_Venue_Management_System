@@ -46,8 +46,6 @@ exports.createActivityBooking = async (req, res) => {
       booking_quantity: bookingQuantity,
     });
 
-    console.log(activityDetails.name);
-    console.log(bookingQuantity);
     const line_items = [
       {
         price_data: {
