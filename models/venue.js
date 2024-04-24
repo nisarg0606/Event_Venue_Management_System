@@ -17,21 +17,10 @@ const venueSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  images: [
-    {
-      type: String,
-    },
-  ],
-  // imagesURL: [
-  //   {
-  //     type: String,
-  //   },
-  // ],
-  // imagesExpiry: [
-  //   {
-  //     type: Date,
-  //   },
-  // ],
+  image: {
+    type: String,
+    required: true,
+  },
   type: {
     type: String,
     required: true,
@@ -41,7 +30,7 @@ const venueSchema = new mongoose.Schema({
     required: true,
     validate: {
       validator: function (v) {
-        return /^[0-9]+(\.[0-9]{1,})?$/.test(v);
+        return /^[0-9]+(\.[0-9]{1,2})?$/.test(v);
       },
       message: (props) =>
         `${props.value} is not a valid price! Price must be a number and can contain up to 2 decimal places.`,
@@ -51,6 +40,17 @@ const venueSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  availability: {
+    type: String,
+    enum: ["available", "unavailable"],
+    default: "available",
+  },
+  venueOwner: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  // Simplified structure for timings
   timings: [
     {
       day: {
@@ -66,7 +66,7 @@ const venueSchema = new mongoose.Schema({
         ],
         required: true,
       },
-      times: [
+      slots: [
         {
           from: {
             type: String,
@@ -80,43 +80,14 @@ const venueSchema = new mongoose.Schema({
       ],
     },
   ],
+});
 
-  // timings: [
-  //   {
-  //     day: {
-  //       type: String,
-  //       required: true,
-  //     },
-  //     slots: [
-  //       {
-  //         time: {
-  //           type: String,
-  //           required: true,
-  //         },
-  //         status: {
-  //           type: String,
-  //           enum: ["available", "booked"],
-  //           default: "available",
-  //         },
-  //       },
-  //     ],
-  //   },
-  // ],
-//   timings: {
-//     type: String,
-//     required: true,
-//   },
-// >>>>>>> master
-  availability: {
-    type: String,
-    enum: ["available", "unavailable"],
-    default: "available",
-  },
-  venueOwner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true,
-  },
+// Index definition remains the same
+venueSchema.index({
+  name: "text",
+  description: "text",
+  location: "text",
+  type: "text",
 });
 
 module.exports = mongoose.model("Venue", venueSchema);

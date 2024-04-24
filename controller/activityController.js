@@ -59,59 +59,73 @@ exports.createActivity = async (req, res) => {
       venue,
       type_of_activity,
       date,
-      time,
+      start_time,
+      end_time,
       participants_limit,
       price,
     } = req.body;
     const host = req.user._id;
     // if the venueOwner is the one creating the activity, the host will be the venueOwner and the activity will be approved
     // if the admin is the one creating the activity, the host will be the admin and the activity will be pending
-    const venueDetails = await venueSchema.findById(venue);
+    let venueDetails = await venueSchema.findById(venue).populate("venueOwner");
     let status = "pending";
+    // check if there are any other bookings for the same slot
+    const bookings = await activitySchema.find({
+      venue,
+      date,
+      start_time,
+      end_time,
+    });
+    if (bookings.length > 0) {
+      return res.status(400).json({
+        message: "There is already an activity booked for the same slot",
+      });
+    }
     const venueOwner = venueDetails.venueOwner;
-    // console.log(venueOwner._id.toString(), host.toString());
-    if (venueOwner._id.toString() === host.toString()) {
-      status = "approved";
-    }
+    // if (venueOwner._id.toString() === host.toString()) {
+    status = "approved";
+    // }
     // check file upload for images
-    if (req.files.length > 5) {
-      return res.status(400).json({ message: "Only 5 images are allowed" });
-    }
-    let images = [];
-    for (let i = 0; i < req.files.length; i++) {
-      const file = req.files[i];
-      const buffer = await sharp(file.buffer)
-        .png({
-          quality: 80,
-        })
-        .toBuffer();
-      file.buffer = buffer;
-      const imageName = randomImageName();
-      const params = {
-        Bucket: bucketName,
-        Key: imageName,
-        Body: file.buffer,
-        ContentType: "image/png",
-      };
-      const data = await s3Client.send(new aws_sdk.PutObjectCommand(params));
-      images.push(imageName);
-    }
+    // if (req.files.length > 1) {
+    //   return res.status(400).json({ message: "Only 1 images is allowed" });
+    // }
+    const file = req.file;
+    const buffer = await sharp(file.buffer)
+      .png({
+        quality: 80,
+      })
+      .toBuffer();
+    file.buffer = buffer;
+    const imageName = randomImageName();
+    const params = {
+      Bucket: bucketName,
+      Key: imageName,
+      Body: file.buffer,
+      ContentType: "image/png",
+    };
+    await s3Client.send(new aws_sdk.PutObjectCommand(params));
+    const image = imageName;
 
-    activitySchema.create({
+    const activity = new activitySchema({
       name,
       description,
       venue,
+      host,
       type_of_activity,
       date,
-      time,
+      start_time,
+      end_time,
       participants_limit,
       price,
-      host,
+      image,
       status,
-      images,
     });
-    res.status(201).json({ message: "Activity created successfully" });
+    await activity.save();
+    res
+      .status(201)
+      .json({ message: "Activity created successfully", activity });
   } catch (error) {
+    console.log("Error:", error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -128,24 +142,63 @@ exports.getActivities = async (req, res) => {
     }
     for (let i = 0; i < activities.length; i++) {
       activities[i] = activities[i].toObject();
-      activities[i].imagesURL = [];
-      for (let j = 0; j < activities[i].images.length; j++) {
-        let url = await redis.get(`activity:${activities[i]._id}:image:${j}`);
-        if (!url) {
-          url = await getSignedURLOfImage(activities[i].images[j]);
-          redis.set(
-            `activity:${activities[i]._id}:image:${j}`,
-            url,
-            "EX",
-            60 * 60 * 24 * 7
-          );
-        }
-        activities[i].imagesURL.push(url);
+      let url = await redis.get(`activity:${activities[i]._id}:image:0`);
+      if (!url) {
+        url = await getSignedURLOfImage(activities[i].image);
+        redis.set(
+          `activity:${activities[i]._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
       }
+      activities[i].imageURL = url;
       // Check if the date of the activity has passed
       if (new Date(activities[i].date) < new Date()) {
-        activities[i].active = False;
+        activities[i].active = false;
       }
+      //set the date format to be in the format of "MM/DD/YYYY"
+      let date = new Date(activities[i].date);
+      let month = date.getMonth() + 1;
+      let day = date.getDate();
+      let year = date.getFullYear();
+      activities[i].date = month + "/" + day + "/" + year;
+    }
+    res.status(200).json(activities);
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
+exports.getUpcomingActivities = async (req, res) => {
+  try {
+    let activities = await activitySchema
+      .find({ date: { $gte: new Date() } })
+      .populate("venue", "name location")
+      .populate("host", "name email")
+      .populate("participants", "name email");
+    if (!activities) {
+      return res.status(404).json({ message: "No activity found" });
+    }
+    for (let i = 0; i < activities.length; i++) {
+      activities[i] = activities[i].toObject();
+      let url = await redis.get(`activity:${activities[i]._id}:image:0`);
+      if (!url) {
+        url = await getSignedURLOfImage(activities[i].image);
+        redis.set(
+          `activity:${activities[i]._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+      }
+      activities[i].imageURL = url;
+      //set the date format to be in the format of "MM/DD/YYYY"
+      let date = new Date(activities[i].date);
+      let month = date.getMonth() + 1;
+      let day = date.getDate();
+      let year = date.getFullYear();
+      activities[i].date = month + "/" + day + "/" + year;
     }
     res.status(200).json(activities);
   } catch (error) {
@@ -164,25 +217,78 @@ exports.getActivity = async (req, res) => {
       return res.status(404).json({ message: "No activity found" });
     }
     activity = activity.toObject();
-    activity.imagesURL = [];
-    for (let i = 0; i < activity.images.length; i++) {
-      let url = await redis.get(`activity:${activity._id}:image:${i}`);
+    let url = await redis.get(`activity:${activity._id}:image:0`);
+    if (!url) {
+      url = await getSignedURLOfImage(activity.image);
+      redis.set(
+        `activity:${activity._id}:image:0`,
+        url,
+        "EX",
+        60 * 60 * 24 * 7
+      );
+    }
+    activity.imageURL = url;
+
+    // Check if the date of the activity has passed
+    if (new Date(activity.date) < new Date()) {
+      activity.active = false;
+    }
+    //set the date format to be in the format of "MM/DD/YYYY"
+    let date = new Date(activity.date);
+    let month = date.getMonth() + 1;
+    let day = date.getDate();
+    let year = date.getFullYear();
+    activity.date = month + "/" + day + "/" + year;
+    res.status(200).json(activity);
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
+exports.getMyActivities = async (req, res) => {
+  try {
+    let activities = await activitySchema
+      .find({ host: req.user._id })
+      .populate("venue", "name location")
+      .populate("host", "name email")
+      .populate("participants", "name email");
+    if (!activities) {
+      return res.status(404).json({ message: "No activity found" });
+    }
+    for (let i = 0; i < activities.length; i++) {
+      activities[i] = activities[i].toObject();
+      let url = await redis.get(`activity:${activities[i]._id}:image:0`);
       if (!url) {
-        url = await getSignedURLOfImage(activity.images[i]);
+        url = await getSignedURLOfImage(activities[i].image);
         redis.set(
-          `activity:${activity._id}:image:${i}`,
+          `activity:${activities[i]._id}:image:0`,
           url,
           "EX",
           60 * 60 * 24 * 7
         );
       }
-      activity.imagesURL.push(url);
+      activities[i].imageURL = url;
+      // Check if the date of the activity has passed
+      if (new Date(activities[i].date) < new Date()) {
+        activities[i].active = false;
+      }
+      //set the date format to be in the format of "MM/DD/YYYY"
+      let date = new Date(activities[i].date);
+      let month = date.getMonth() + 1;
+      let day = date.getDate();
+      let year = date.getFullYear();
+      activities[i].date = month + "/" + day + "/" + year;
     }
-    // Check if the date of the activity has passed
-    if (new Date(activity.date) < new Date()) {
-      activity.active = False;
+    //give set of participants for each activity so activity host can see who is participating in their activity
+    //convert the participants to set so that there are no duplicate participants
+    for (let activity of activities) {
+      let participantsSet = new Set();
+      for (let participant of activity.participants) {
+        participantsSet.add(participant);
+      }
+      activity.participants = Array.from(participantsSet);
     }
-    res.status(200).json(activity);
+    res.status(200).json(activities);
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -217,41 +323,43 @@ exports.updateActivity = async (req, res) => {
       participants_limit,
       price,
     } = req.body;
-    let images = [];
-    if (req.files) {
-      for (let i = 0; i < req.files.length; i++) {
-        const file = req.files[i];
-        const buffer = await sharp(file.buffer)
-          .png({
-            quality: 80,
-          })
-          .toBuffer();
-        file.buffer = buffer;
-        const imageName = randomImageName();
-        const params = {
-          Bucket: bucketName,
-          Key: imageName,
-          Body: file.buffer,
-          ContentType: "image/png",
-        };
-        const data = await s3Client.send(new aws_sdk.PutObjectCommand(params));
-        images.push(imageName);
-      }
+    if (req.file) {
+      //delete the old images from the S3 bucket
+      let params = {
+        Bucket: bucketName,
+        Key: activity.image,
+      };
+      await s3Client.send(new aws_sdk.DeleteObjectCommand(params));
+      //upload the new image
+      const file = req.file;
+      const buffer = await sharp(file.buffer)
+        .png({
+          quality: 80,
+        })
+        .toBuffer();
+      file.buffer = buffer;
+      const imageName = randomImageName();
+      params = {
+        Bucket: bucketName,
+        Key: imageName,
+        Body: file.buffer,
+        ContentType: "image/png",
+      };
+      await s3Client.send(new aws_sdk.PutObjectCommand(params));
+      activity.image = imageName;
+    } else {
+      activity.image = activity.image;
     }
-    await activitySchema.findByIdAndUpdate(id, {
-      name,
-      description,
-      venue,
-      type_of_activity,
-      date,
-      time,
-      participants_limit,
-      price,
-      images,
-    });
-    res
-      .status(200)
-      .json({ message: "Activity updated successfully", activity: activity });
+    if (name) activity.name = name;
+    if (description) activity.description = description;
+    if (venue) activity.venue = venue;
+    if (type_of_activity) activity.type_of_activity = type_of_activity;
+    if (date) activity.date = date;
+    if (time) activity.time = time;
+    if (participants_limit) activity.participants_limit = participants_limit;
+    if (price) activity.price = price;
+    await activity.save();
+    res.status(200).json({ message: "Activity updated successfully" });
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
@@ -320,6 +428,75 @@ exports.rejectActivity = async (req, res) => {
     }
     await activitySchema.findByIdAndUpdate(id, { status: "rejected" });
     res.status(200).json({ message: "Activity rejected successfully" });
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
+exports.searchActivities = async (req, res) => {
+  try {
+    const { search } = req.query;
+    let activities;
+    let activitiesList = [];
+
+    if (search) {
+      const regex = new RegExp(search, "i");
+      activities = await activitySchema.find({
+        $or: [
+          { name: regex },
+          { description: regex },
+          { type_of_activity: regex },
+          { location: regex },
+        ],
+      });
+    } else {
+      // If no search query is provided, return all activities
+      activities = await activitySchema.find();
+      for (let activity of activities) {
+        activity = activity.toObject();
+        let url = await redis.get(`activity:${activity._id}:image:0`);
+        if (!url) {
+          url = await getSignedURLOfImage(activity.image);
+          redis.set(
+            `activity:${activity._id}:image:0`,
+            url,
+            "EX",
+            60 * 60 * 24 * 7
+          );
+        }
+        activity.imageURL = url;
+        // Check if the date of the activity has passed
+        if (new Date(activity.date) < new Date()) {
+          activity.active = false;
+        }
+        activitiesList.push(activity);
+      }
+      return res.status(200).json(activitiesList);
+    }
+
+    if (!activities) {
+      return res.status(404).json({ message: "No activity found" });
+    }
+    for (let activity of activities) {
+      activity = activity.toObject();
+      let url = await redis.get(`activity:${activity._id}:image:0`);
+      if (!url) {
+        url = await getSignedURLOfImage(activity.image);
+        redis.set(
+          `activity:${activity._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+      }
+      activity.imageURL = url;
+      // Check if the date of the activity has passed
+      if (new Date(activity.date) < new Date()) {
+        activity.active = false;
+      }
+      activitiesList.push(activity);
+    }
+    res.status(200).json(activitiesList);
   } catch (error) {
     res.status(404).json({ message: error.message });
   }
