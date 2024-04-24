@@ -8,6 +8,9 @@ const venue = require("../models/venue.js");
 const venueBooking = require("../models/venueBooking.js");
 const { date } = require("joi");
 const sendEmail = require("../utils/email.js");
+const dotenv = require("dotenv");
+dotenv.config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 exports.createAVenueBooking = async (req, res) => {
   try {
@@ -19,7 +22,7 @@ exports.createAVenueBooking = async (req, res) => {
       timeSlot = [timeSlot];
     }
     // Check if the venue exists
-    const venue = await venueModel.findById(venue_id);
+    const venue = await venueModel.findById(venue_id).populate("venueOwner");
     if (!venue) {
       return res.status(404).json({ message: "Venue not found" });
     }
@@ -60,8 +63,27 @@ exports.createAVenueBooking = async (req, res) => {
         booking_date: bookingDate,
         booking_time_slot: timeSlot[i],
       });
-      await newBooking.save();
+      // await newBooking.save();
     }
+    const line_items = [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: venue.name,
+          },
+          unit_amount: Math.round(venue.pricePerHour * 100),
+        },
+        quantity: 1,
+      },
+    ];
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: line_items,
+      mode: "payment",
+      success_url: `${process.env.CLIENT_URL}/success`,
+      cancel_url: `${process.env.CLIENT_URL}/cancel`,
+    });
     let mailOptions = {
       email: req.user.email,
       subject: "Booking Confirmation",
@@ -97,7 +119,9 @@ exports.createAVenueBooking = async (req, res) => {
       mailOptions.text,
       mailOptions.html
     );
-    return res.status(201).json({ message: "Booking successful" });
+    return res
+      .status(201)
+      .json({ message: "Booking successful", sessionId: session.id });
   } catch (error) {
     console.error("Error booking slot:", error);
     res.status(500).json({ message: "Internal server error" });

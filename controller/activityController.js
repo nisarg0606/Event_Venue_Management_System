@@ -170,6 +170,42 @@ exports.getActivities = async (req, res) => {
   }
 };
 
+exports.getUpcomingActivities = async (req, res) => {
+  try {
+    let activities = await activitySchema
+      .find({ date: { $gte: new Date() } })
+      .populate("venue", "name location")
+      .populate("host", "name email")
+      .populate("participants", "name email");
+    if (!activities) {
+      return res.status(404).json({ message: "No activity found" });
+    }
+    for (let i = 0; i < activities.length; i++) {
+      activities[i] = activities[i].toObject();
+      let url = await redis.get(`activity:${activities[i]._id}:image:0`);
+      if (!url) {
+        url = await getSignedURLOfImage(activities[i].image);
+        redis.set(
+          `activity:${activities[i]._id}:image:0`,
+          url,
+          "EX",
+          60 * 60 * 24 * 7
+        );
+      }
+      activities[i].imageURL = url;
+      //set the date format to be in the format of "MM/DD/YYYY"
+      let date = new Date(activities[i].date);
+      let month = date.getMonth() + 1;
+      let day = date.getDate();
+      let year = date.getFullYear();
+      activities[i].date = month + "/" + day + "/" + year;
+    }
+    res.status(200).json(activities);
+  } catch (error) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
 exports.getActivity = async (req, res) => {
   try {
     let activity = await activitySchema

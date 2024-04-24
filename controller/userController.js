@@ -559,6 +559,7 @@ exports.searchPeopleWithSimilarInterests = async (req, res) => {
           { firstName: regex },
           { lastName: regex },
         ],
+        role: { $ne: "venueOwner/eventPlanner" },
       });
       console.log(users + "users");
     } else {

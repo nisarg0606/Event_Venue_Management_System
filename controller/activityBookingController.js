@@ -4,10 +4,14 @@ const user = require("../models/user");
 const redis = require("../utils/redis");
 const csvWriter = require("csv-writer");
 const fs = require("fs");
+const dotenv = require("dotenv");
+dotenv.config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
 // create a new activity booking
 exports.createActivityBooking = async (req, res) => {
   try {
-    let { activityId, bookingQuantity, phoneNumber } = req.body;
+    let { activityId, bookingQuantity, phone } = req.body;
     const userId = req.user._id;
 
     let activityDetails = await activity.findById(activityId);
@@ -30,11 +34,11 @@ exports.createActivityBooking = async (req, res) => {
       //also decrease the available slots by the quantity
       activityDetails.participants_limit -= bookingQuantity;
     }
-    await activityDetails.save();
+    // await activityDetails.save();
     const newActivityBooking = new activityBooking({
       user: userId,
       activity: activityId,
-      phone: phoneNumber,
+      phone: phone,
       booking_date: new Date().toISOString().slice(0, 10),
       booking_time: new Date().toISOString().slice(11, 19),
       booking_status: "booked",
@@ -42,25 +46,45 @@ exports.createActivityBooking = async (req, res) => {
       booking_quantity: bookingQuantity,
     });
 
-    const savedActivityBooking = await newActivityBooking.save();
+    console.log(activityDetails.name);
+    console.log(bookingQuantity);
+    const line_items = [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: activityDetails.name,
+          },
+          unit_amount: Math.round(activityDetails.price * 100),
+        },
+        quantity: bookingQuantity,
+      },
+    ];
 
-    // store the phone number of the user in redis and set expiry when the activity ends
-    await redis.set(
-      `user:${userId}:activityBooking:${savedActivityBooking._id}:phone`,
-      phoneNumber,
-      "EX",
-      // convert the date and time to seconds and subtract the current time in seconds to get the expiry time in seconds
-      Math.floor(
-        new Date(`${activityDetails.date}T${activityDetails.time}`).getTime() /
-          1000 -
-          new Date().getTime() / 1000
-      )
-    );
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items,
+      mode: "payment",
+      success_url: `${process.env.CLIENT_URL}/success`,
+      cancel_url: `${process.env.CLIENT_URL}/cancel`,
+    });
+
+    // const savedActivityBooking = await newActivityBooking.save();
+
+    // // store the phone number of the user in redis and set expiry when the activity ends
+    // await redis.set(
+    //   `user:${userId}:activityBooking:${savedActivityBooking._id}:phone`,
+    //   phone,
+    //   "EX",
+    //   60 * 60 * 24 * 7
+    // );
 
     res.status(201).json({
       success: true,
       message: "Activity booking created successfully",
-      data: savedActivityBooking,
+      // data: savedActivityBooking,
+      data: newActivityBooking,
+      sessionId: session.id,
     });
   } catch (error) {
     console.log(error);
@@ -338,6 +362,9 @@ exports.getPariticipantsOfActivityInCsv = async (req, res) => {
       let phoneNumber = await redis.get(
         `user:${participants[i]._id}:activityBooking:${activityId}:phone`
       );
+      if (!phoneNumber) {
+        phoneNumber = "Not available";
+      }
       participantsWithPhoneNumbers.push({
         name: participants[i].firstName + " " + participants[i].lastName,
         email: participants[i].email,
@@ -345,22 +372,10 @@ exports.getPariticipantsOfActivityInCsv = async (req, res) => {
       });
     }
 
-    const csvHeaders = [
-      { id: "name", title: "Name" },
-      { id: "email", title: "Email" },
-      { id: "phone", title: "Phone" },
-    ];
-
-    const csv = csvWriter.createObjectCsvWriter({
-      path: "participants_+" + activityDetails.name + ".csv",
-      header: csvHeaders,
-    });
-
-    csv.writeRecords(participants).then(() => {
-      let fileName = "participants_+" + activityDetails.name + ".csv";
-      res.download(fileName, fileName, () => {
-        fs.unlinkSync(fileName);
-      });
+    //give output in json format
+    res.status(200).json({
+      success: true,
+      data: participantsWithPhoneNumbers,
     });
   } catch (error) {
     res.status(400).json({
