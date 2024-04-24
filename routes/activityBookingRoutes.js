@@ -13,5 +13,11 @@ router.get("/:id", auth, activityBookingController.getActivityBookingById);
 router.put("/:id", auth, activityBookingController.updateActivityBooking);
 // Delete a booking with booking_id
 router.delete("/:id", auth, activityBookingController.deleteActivityBooking);
+// get csv of bookings
+router.get(
+  "/csv/:activity_id",
+  auth,
+  activityBookingController.getPariticipantsOfActivityInCsv
+);
 
 module.exports = router;

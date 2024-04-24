@@ -1,8 +1,10 @@
 const mongoose = require("mongoose");
+const { validate } = require("./token");
 
 const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
+    trim: true,
     required: true,
     validate: {
       validator: function (v) {
@@ -13,6 +15,7 @@ const userSchema = new mongoose.Schema({
   },
   lastName: {
     type: String,
+    trim: true,
     required: false,
     validate: {
       validator: function (v) {
@@ -25,6 +28,13 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
+    validate: {
+      validator: function (v) {
+        return /^[a-zA-Z0-9]+$/.test(v);
+      },
+      message: (props) =>
+        `${props.value} is not a valid username! Username can only contain letters and numbers.`,
+    },
   },
   email: {
     type: String,

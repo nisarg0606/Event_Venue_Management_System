@@ -243,6 +243,15 @@ exports.getMyActivities = async (req, res) => {
       let year = date.getFullYear();
       activities[i].date = month + "/" + day + "/" + year;
     }
+    //give set of participants for each activity so activity host can see who is participating in their activity
+    //convert the participants to set so that there are no duplicate participants
+    for (let activity of activities) {
+      let participantsSet = new Set();
+      for (let participant of activity.participants) {
+        participantsSet.add(participant);
+      }
+      activity.participants = Array.from(participantsSet);
+    }
     res.status(200).json(activities);
   } catch (error) {
     res.status(404).json({ message: error.message });

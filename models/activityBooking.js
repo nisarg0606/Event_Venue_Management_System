@@ -8,6 +8,10 @@ const activityBookingSchema = new moongose.Schema(
       ref: "User",
       required: true,
     },
+    phone: {
+      type: String,
+      required: true,
+    },
     activity: {
       type: moongose.Schema.Types.ObjectId,
       ref: "Activity",

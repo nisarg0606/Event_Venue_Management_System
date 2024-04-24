@@ -161,9 +161,10 @@ exports.findVenueBookingByOwner = async (req, res) => {
 exports.findMyUpcomingVenueBookings = async (req, res) => {
   try {
     let upcoming = [];
+    const userId = req.user._id;
     // i need just venue name, booking date and booking time slot
     let allVenueBookings = await VenueBookingModel.find({
-      user: req.user._id,
+      user: userId,
     })
       .populate("venue", "name")
       .select("booking_date")
@@ -194,6 +195,7 @@ exports.findMyUpcomingVenueBookings = async (req, res) => {
     );
     res.status(200).send({ upcoming });
   } catch (err) {
+    console.log(err);
     res.status(500).send({
       message: err.message || "Some error occurred while retrieving bookings.",
     });

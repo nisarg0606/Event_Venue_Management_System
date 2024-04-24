@@ -1,11 +1,13 @@
 const activityBooking = require("../models/activityBooking");
 const activity = require("../models/activities");
 const user = require("../models/user");
-
+const redis = require("../utils/redis");
+const csvWriter = require("csv-writer");
+const fs = require("fs");
 // create a new activity booking
 exports.createActivityBooking = async (req, res) => {
   try {
-    let { activityId, bookingQuantity } = req.body;
+    let { activityId, bookingQuantity, phoneNumber } = req.body;
     const userId = req.user._id;
 
     let activityDetails = await activity.findById(activityId);
@@ -32,6 +34,7 @@ exports.createActivityBooking = async (req, res) => {
     const newActivityBooking = new activityBooking({
       user: userId,
       activity: activityId,
+      phone: phoneNumber,
       booking_date: new Date().toISOString().slice(0, 10),
       booking_time: new Date().toISOString().slice(11, 19),
       booking_status: "booked",
@@ -40,6 +43,19 @@ exports.createActivityBooking = async (req, res) => {
     });
 
     const savedActivityBooking = await newActivityBooking.save();
+
+    // store the phone number of the user in redis and set expiry when the activity ends
+    await redis.set(
+      `user:${userId}:activityBooking:${savedActivityBooking._id}:phone`,
+      phoneNumber,
+      "EX",
+      // convert the date and time to seconds and subtract the current time in seconds to get the expiry time in seconds
+      Math.floor(
+        new Date(`${activityDetails.date}T${activityDetails.time}`).getTime() /
+          1000 -
+          new Date().getTime() / 1000
+      )
+    );
 
     res.status(201).json({
       success: true,
@@ -294,6 +310,58 @@ exports.getActivityBookingParticipantsCountOfAllActivitiesOfHost = async (
         upcomingActivities,
       });
     }
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+//pass activity_id in the url
+exports.getPariticipantsOfActivityInCsv = async (req, res) => {
+  try {
+    const activityId = req.params.activity_id;
+    const activityDetails = await activity.findById(activityId);
+    if (!activityDetails) {
+      return res.status(404).json({
+        success: false,
+        message: "Activity not found",
+      });
+    }
+    const participants = await user.find({
+      _id: { $in: activityDetails.participants },
+    });
+    //get phone number of participants from redis and add it to the participants array
+    let participantsWithPhoneNumbers = [];
+    for (let i = 0; i < participants.length; i++) {
+      let phoneNumber = await redis.get(
+        `user:${participants[i]._id}:activityBooking:${activityId}:phone`
+      );
+      participantsWithPhoneNumbers.push({
+        name: participants[i].firstName + " " + participants[i].lastName,
+        email: participants[i].email,
+        phone: phoneNumber,
+      });
+    }
+
+    const csvHeaders = [
+      { id: "name", title: "Name" },
+      { id: "email", title: "Email" },
+      { id: "phone", title: "Phone" },
+    ];
+
+    const csv = csvWriter.createObjectCsvWriter({
+      path: "participants_+" + activityDetails.name + ".csv",
+      header: csvHeaders,
+    });
+
+    csv.writeRecords(participants).then(() => {
+      let fileName = "participants_+" + activityDetails.name + ".csv";
+      res.download(fileName, fileName, () => {
+        fs.unlinkSync(fileName);
+      });
+    });
   } catch (error) {
     res.status(400).json({
       success: false,
