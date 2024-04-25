@@ -63,7 +63,7 @@ exports.createAVenueBooking = async (req, res) => {
         booking_date: bookingDate,
         booking_time_slot: timeSlot[i],
       });
-      // await newBooking.save();
+      await newBooking.save();
     }
     const line_items = [
       {
@@ -74,7 +74,7 @@ exports.createAVenueBooking = async (req, res) => {
           },
           unit_amount: Math.round(venue.pricePerHour * 100),
         },
-        quantity: 1,
+        quantity: timeSlot.length,
       },
     ];
     const session = await stripe.checkout.sessions.create({
@@ -134,6 +134,7 @@ exports.findAllVenueBookings = async (req, res) => {
     let past = [],
       upcoming = [];
     let allVenueBookings = await VenueBookingModel.find();
+    console.log(allVenueBookings);
     allVenueBookings.forEach((booking) => {
       if (booking.booking_date < new Date()) {
         past.push(booking);
@@ -157,11 +158,11 @@ exports.findVenueBookingByOwner = async (req, res) => {
     // populate and filter bookings of the venue owner. The venue owner is the user who is logged in and the field is known as venueOwner in the venue model
     // venueOwner is in venue model and not in venueBooking model but venueBooking model contains venue field which is the id of the venue
     const ownedVenue = await venueModel.find({ venueOwner: req.user._id });
-    let allVenueBookings = await VenueBookingModel.find({
-      venue: { $in: ownedVenue.map((venue) => venue._id) },
-    })
+    console.log(ownedVenue);
+    let allVenueBookings = await VenueBookingModel.find()
       .populate("venue", "name")
       .populate("user", "firstName lastName username email");
+    console.log(allVenueBookings);
     allVenueBookings.forEach((booking) => {
       if (booking.booking_date < new Date()) {
         past.push(booking);
@@ -400,9 +401,17 @@ exports.getAvailableSlots = async (req, res) => {
     const { date } = req.query;
 
     // Check if the venue exists
-    const venue = await venueModel.findById(venue_id);
+    let venue = await venueModel.findById(venue_id);
     if (!venue) {
       return res.status(404).json({ message: "Venue not found" });
+    }
+    //if the price is not provided in slot, then add the price from venue model
+    venue = venue.toObject();
+    venue.pricePerHour = venue.pricePerHour || 0;
+    for (let i = 0; i < venue.timings.length; i++) {
+      for (let j = 0; j < venue.timings[i].slots.length; j++) {
+        venue.timings[i].slots[j].price = venue.pricePerHour;
+      }
     }
 
     // Parse the date

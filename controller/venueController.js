@@ -92,12 +92,9 @@ exports.createVenue = async (req, res) => {
     // ]
     if (typeof timings === "string") {
       const tempTimings = timings;
-      console.log("tempTimings: ", tempTimings);
       timings = [];
       timings = timings.concat(tempTimings);
     }
-    console.log("timings: ", timings);
-
     // Parse timings array from string to object
     // Parse timings array from string to object
     const updatedTimings = timings.map((timingObj) => {
@@ -124,7 +121,6 @@ exports.createVenue = async (req, res) => {
       };
     });
 
-    console.log(updatedTimings);
     venue = new venueSchema({
       name,
       location,
@@ -136,7 +132,6 @@ exports.createVenue = async (req, res) => {
       image,
       venueOwner,
     });
-    console.log("venue: ", venue);
     await venue.save();
     res.status(201).json({ message: "Venue created successfully", venue });
   } catch (error) {
@@ -190,6 +185,12 @@ exports.getVenue = async (req, res) => {
       // console.log("URL from Redis in else: ", redis_response.toString());
       venue.imageURL = url;
     }
+    //add price to each slot
+    for (let timing of venue.timings) {
+      for (let slot of timing.slots) {
+        slot.price = venue.pricePerHour;
+      }
+    }
     // Send the venue and imageURL as the response
     res.status(200).json({ venue });
   } catch (error) {
@@ -215,6 +216,11 @@ exports.getVenues = async (req, res) => {
       let url = await redis.get(`venue:${venue._id}:image:0`);
       if (url) {
         venue.imageURL = url;
+        for (let timing of venue.timings) {
+          for (let slot of timing.slots) {
+            slot.price = venue.pricePerHour;
+          }
+        }
         venues_json[venue._id] = venue;
       } else {
         // If image URL does not exist or is expired, get a new signed URL
@@ -227,6 +233,13 @@ exports.getVenues = async (req, res) => {
           60 * 60 * 24 * 7
         );
         venue.imageURL = url;
+        //add price to each slot
+        for (let timing of venue.timings) {
+          for (let slot of timing.slots) {
+            slot.price = venue.pricePerHour;
+          }
+        }
+        console.log("venue: ", venue);
         venues_json[venue._id] = venue;
       }
     }
@@ -305,8 +318,16 @@ exports.getVenueByType = async (req, res) => {
 // for update delete the previous images and add new images
 exports.updateVenue = async (req, res) => {
   try {
-    let { name, location, type, capacity, price, description, timings } =
-      req.body;
+    let {
+      name,
+      location,
+      type,
+      capacity,
+      price,
+      description,
+      timings,
+      availability,
+    } = req.body;
     const venue = await venueSchema.findById(req.params.id);
     if (!venue) {
       return res.status(404).json({ message: "Venue not found" });
@@ -325,6 +346,7 @@ exports.updateVenue = async (req, res) => {
     if (capacity) venue.capacity = capacity;
     if (price) venue.pricePerHour = price;
     if (description) venue.description = description;
+    if (availability) venue.availability = availability;
     if (timings) {
       if (typeof timings === "string") {
         const tempTimings = timings;

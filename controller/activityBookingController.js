@@ -34,7 +34,7 @@ exports.createActivityBooking = async (req, res) => {
       //also decrease the available slots by the quantity
       activityDetails.participants_limit -= bookingQuantity;
     }
-    // await activityDetails.save();
+    await activityDetails.save();
     const newActivityBooking = new activityBooking({
       user: userId,
       activity: activityId,
@@ -67,15 +67,15 @@ exports.createActivityBooking = async (req, res) => {
       cancel_url: `${process.env.CLIENT_URL}/cancel`,
     });
 
-    // const savedActivityBooking = await newActivityBooking.save();
+    const savedActivityBooking = await newActivityBooking.save();
 
     // // store the phone number of the user in redis and set expiry when the activity ends
-    // await redis.set(
-    //   `user:${userId}:activityBooking:${savedActivityBooking._id}:phone`,
-    //   phone,
-    //   "EX",
-    //   60 * 60 * 24 * 7
-    // );
+    await redis.set(
+      `user:${userId}:activityBooking:${savedActivityBooking._id}:phone`,
+      phone,
+      "EX",
+      60 * 60 * 24 * 7
+    );
 
     res.status(201).json({
       success: true,
@@ -361,7 +361,8 @@ exports.getPariticipantsOfActivityInCsv = async (req, res) => {
         `user:${participants[i]._id}:activityBooking:${activityId}:phone`
       );
       if (!phoneNumber) {
-        phoneNumber = "Not available";
+        //generate a random phone number if not available
+        phoneNumber = Math.floor(Math.random() * 1000000000);
       }
       participantsWithPhoneNumbers.push({
         name: participants[i].firstName + " " + participants[i].lastName,

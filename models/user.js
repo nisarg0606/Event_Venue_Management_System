@@ -29,8 +29,9 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
     validate: {
+      //can contains . _  -  and numbers
       validator: function (v) {
-        return /^[a-zA-Z0-9]+$/.test(v);
+        return /^[a-zA-Z0-9._-]+$/.test(v);
       },
       message: (props) =>
         `${props.value} is not a valid username! Username can only contain letters and numbers.`,

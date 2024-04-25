@@ -73,6 +73,12 @@ const activitySchema = new moongose.Schema({
     type: Boolean,
     default: true,
   },
+  feedback: [
+    {
+      type: moongose.Schema.Types.ObjectId,
+      ref: "Feedback",
+    },
+  ],
 });
 
 activitySchema.index({

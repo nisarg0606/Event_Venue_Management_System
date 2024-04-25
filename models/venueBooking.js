@@ -1,4 +1,3 @@
-const { from } = require("env-var");
 const moongose = require("mongoose");
 
 const venueBookingSchema = new moongose.Schema({

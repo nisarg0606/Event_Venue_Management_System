@@ -219,7 +219,6 @@ exports.enableTwoFactorAuth = async (req, res) => {
     }
     const verified = jwt.verify(token, process.env.JWT_SECRET);
     const user = await userSchema.findById(verified.user._id);
-    console.log(user, "user");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -321,7 +320,6 @@ exports.forgetPassword = async (req, res) => {
       userId: user._id,
       token: crypto.randomBytes(32).toString("hex"),
     }).save();
-    console.log("TOKEN: ", token.token);
     const userId = user._id;
     const message = `${process.env.BASE_URL}/users/verifyForgotPasswordLink/${userId}/${token.token}`;
     let userInfo = {
@@ -529,13 +527,14 @@ exports.getUser2FAStatus = async (req, res) => {
 
 exports.getPeopleWithSimilarInterests = async (req, res) => {
   try {
-    let users = await userSchema.find();
+    let users = await userSchema.find({ role: "customer" });
     users = users.map((user) => {
       return {
         id: user._id,
         username: user.username,
         email: user.email,
         interestedIn: user.interestedIn,
+        role: "customer",
       };
     });
     res.status(200).json({ users });
@@ -548,7 +547,6 @@ exports.searchPeopleWithSimilarInterests = async (req, res) => {
   try {
     const { search } = req.query;
     let users;
-    console.log(search);
     if (search) {
       const regex = new RegExp(search, "i");
       users = await userSchema.find({
@@ -559,9 +557,8 @@ exports.searchPeopleWithSimilarInterests = async (req, res) => {
           { firstName: regex },
           { lastName: regex },
         ],
-        role: { $ne: "venueOwner/eventPlanner" },
+        role: "customer",
       });
-      console.log(users + "users");
     } else {
       users = await userSchema.find();
     }
